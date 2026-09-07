@@ -17,17 +17,18 @@ board serve       # http://localhost:4444
 ## cli
 
 ```
-board add "title" [--spec path] [--dep id]... [--branch b]
-board list [--status s] [--all]     board ready [--all]     board show <id>
+board add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b]
+board list [--status s] [--when w] [--all]     board ready [--all]     board show <id>
 board claim <id> [--branch b]       board move <id> todo|doing|blocked|review|merge|done
 board done <id>   board block <id> "why"   board note <id> "text"
-board edit <id> [--title t] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
+board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
 board rm <id>     board file
 ```
 
 `--by <name>` or `BOARD_AGENT=<name>` sets who is acting (default: your username).
 `--project` defaults to the git root name of the current directory; `list` and `ready` show only that project unless `--all`.
 `--json` on any command prints raw JSON.
+`when` is now, next, or later (default later). It is a horizon tag, separate from status and from order.
 
 ## agent rules
 

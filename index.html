@@ -21,6 +21,8 @@
   .card .meta { color:var(--mute); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
   .card .note { font-size:12px; margin-top:4px; border-top:1px solid var(--line); padding-top:4px; }
   .owner { color:var(--acc); }
+  .when { font-size:11px; padding:0 5px; border-radius:4px; background:rgba(127,127,127,.15); }
+  .when.now { background:#dc2626; color:#fff; } .when.next { background:#d97706; color:#fff; }
   dialog { border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); width:min(680px,95vw); padding:16px; }
   dialog::backdrop { background:rgba(0,0,0,.4); }
   dialog form.fields { display:grid; grid-template-columns:90px 1fr; gap:6px 10px; align-items:center; }
@@ -35,6 +37,7 @@
   <h1>agent board</h1>
   <span id="err" class="err"></span>
   <select id="project"><option value="">all projects</option></select>
+  <select id="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
   <label><input type="checkbox" id="hideDone"> hide done</label>
   <button class="primary" onclick="openAdd()">+ task</button>
 </header>
@@ -45,6 +48,7 @@
     <label>id</label><span id="f_id"></span>
     <label>title</label><input name="title">
     <label>project</label><input name="project">
+    <label>when</label><select name="when"><option>now</option><option>next</option><option>later</option></select>
     <label>owner</label><input name="owner">
     <label>branch</label><input name="branch">
     <label>spec</label><input name="spec">
@@ -84,11 +88,11 @@ function render() {
   const projects = [...new Set(board.tasks.map(t => t.project).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">all projects</option>' + projects.map(p => `<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
   try { if (!cur && localStorage.project && projects.includes(localStorage.project)) sel.value = localStorage.project; } catch {}
-  const filter = sel.value, hideDone = $('#hideDone').checked;
+  const filter = sel.value, hideDone = $('#hideDone').checked, when = $('#when').value;
   const stale = Date.now() - 24*3600e3;
   $('#board').innerHTML = STATUSES.map(s => {
     if (s === 'done' && hideDone) return '';
-    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter));
+    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when));
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
   }).join('');
@@ -98,7 +102,7 @@ function render() {
     const blockedDeps = t.deps.filter(d => { const x = board.tasks.find(y => y.id === d); return !x || x.status !== 'done'; });
     const isStale = t.status === 'doing' && new Date(t.updated_at) < stale;
     return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})" title="${isStale ? 'no update in 24h' : ''}">
-      <div class="id">#${t.id} ${filter ? '' : esc(t.project)}</div>
+      <div class="id">#${t.id} ${filter ? '' : esc(t.project)} <span class="when ${t.when || 'later'}">${t.when || 'later'}</span></div>
       <div class="title">${esc(t.title)}</div>
       <div class="meta">${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}
         ${t.deps.length ? `<span>deps ${t.deps.map(d => blockedDeps.includes(d) ? `<b>#${d}</b>` : '#'+d).join(' ')}</span>` : ''}</div>
@@ -125,6 +129,7 @@ function openTask(id) {
   const f = $('#fields'); $('#f_id').textContent = '#' + id + '  [' + current.status + ']';
   for (const k of ['title','project','owner','branch','spec']) f[k].value = current[k] || '';
   f.deps.value = current.deps.join(', ');
+  f.when.value = current.when || 'later';
   $('#hist').innerHTML = current.history.map(h => `<div>${h.at.slice(0,16).replace('T',' ')} <span class="by">${esc(h.by)}</span> ${h.type}: ${esc(h.text)}</div>`).join('');
   $('#noteText').value = '';
   dlg.showModal();
@@ -132,7 +137,7 @@ function openTask(id) {
 async function saveEdit() {
   const f = $('#fields');
   const deps = f.deps.value.split(/[ ,]+/).filter(Boolean).map(Number);
-  try { await api('edit', { id: current.id, title: f.title.value, project: f.project.value, owner: f.owner.value, branch: f.branch.value, spec: f.spec.value, deps }); dlg.close(); refresh(); }
+  try { await api('edit', { id: current.id, title: f.title.value, project: f.project.value, when: f.when.value, owner: f.owner.value, branch: f.branch.value, spec: f.spec.value, deps }); dlg.close(); refresh(); }
   catch (e) { $('#err').textContent = e.message; }
 }
 async function addNote() {
@@ -151,5 +156,6 @@ async function openAdd() {
 }
 $('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };
 $('#hideDone').onchange = render;
+$('#when').onchange = render;
 refresh(); setInterval(refresh, 2000);
 </script>

@@ -7,7 +7,9 @@ const env = { ...process.env, BOARD_FILE: path.join(dir, 'b.json') };
 const run = (...a) => execFileSync('node', [path.join(__dirname, 'board.js'), ...a], { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 run('add', 'write spec', '--project', 'p', '--by', 'pingu');
-run('add', 'implement', '--project', 'p', '--dep', '1', '--by', 'pingu');
+run('add', 'implement', '--project', 'p', '--dep', '1', '--by', 'pingu', '--when', 'now');
+assert.match(run('list', '--all', '--when', 'now'), /#2 \[todo now\]/); assert.doesNotMatch(run('list', '--all', '--when', 'now'), /#1/);
+assert.throws(() => run('edit', '2', '--when', 'someday'), /when must be/);
 assert.match(run('ready', '--all'), /#1/); assert.doesNotMatch(run('ready', '--all'), /#2/);
 run('claim', '1', '--by', 'claude', '--branch', 'feat/spec');
 assert.throws(() => run('claim', '1', '--by', 'opencode'), /owned by claude/);

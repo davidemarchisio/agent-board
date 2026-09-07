@@ -9,6 +9,7 @@ const { execSync } = require('child_process');
 const FILE = process.env.BOARD_FILE || path.join(os.homedir(), '.agent-board', 'board.json');
 const LOCK = FILE + '.lock';
 const STATUSES = ['todo', 'doing', 'blocked', 'review', 'merge', 'done'];
+const WHENS = ['now', 'next', 'later'];
 
 // ---------- storage ----------
 function load() {
@@ -59,9 +60,10 @@ function isReady(board, t) {
 }
 
 const ops = {
-  add(board, by, { title, project, spec = '', deps = [], branch = '' }) {
+  add(board, by, { title, project, spec = '', deps = [], branch = '', when = 'later' }) {
     if (!title) throw new Error('title required');
-    const t = { id: board.next_id++, title, project, status: 'todo', owner: '', branch, spec,
+    if (!WHENS.includes(when)) throw new Error('when must be one of ' + WHENS.join('|'));
+    const t = { id: board.next_id++, title, project, status: 'todo', when, owner: '', branch, spec,
       deps: deps.map(Number), created_at: now(), updated_at: '', history: [] };
     record(t, by, 'create', title);
     board.tasks.push(t);
@@ -91,7 +93,8 @@ const ops = {
   },
   edit(board, by, { id, ...fields }) {
     const t = find(board, id);
-    const allowed = ['title', 'project', 'owner', 'branch', 'spec', 'deps'];
+    const allowed = ['title', 'project', 'when', 'owner', 'branch', 'spec', 'deps'];
+    if (fields.when !== undefined && !WHENS.includes(fields.when)) throw new Error('when must be one of ' + WHENS.join('|'));
     const changed = [];
     for (const k of allowed) if (fields[k] !== undefined) {
       const v = k === 'deps' ? [].concat(fields[k]).map(Number) : fields[k];
@@ -132,16 +135,16 @@ function parseArgs(argv) {
 }
 function fmt(t) {
   const last = t.history.filter(h => h.type === 'note').pop();
-  return `#${t.id} [${t.status}] ${t.title}` +
+  return `#${t.id} [${t.status}${t.when && t.when !== 'later' ? ' ' + t.when : ''}] ${t.title}` +
     (t.project ? `  (${t.project})` : '') + (t.owner ? `  @${t.owner}` : '') + (t.branch ? `  ${t.branch}` : '') +
     (t.deps.length ? `  deps:${t.deps.join(',')}` : '') + (last ? `\n    ${last.by}: ${last.text}` : '');
 }
 const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [--json]
-  add "title" [--spec path] [--dep id]... [--branch b]
-  list [--status s] [--all]     ready [--all]      show <id>
+  add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b]
+  list [--status s] [--when w] [--all]   ready [--all]   show <id>
   claim <id> [--branch b]       move <id> <status>  (${STATUSES.join('|')})
   done <id>  block <id> "why"   note <id> "text"
-  edit <id> [--title t] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
+  edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
   rm <id>    serve [port]       file
 identity: --by <name> or BOARD_AGENT env (default: $USER). project: --project or git root name.`;
 
@@ -152,13 +155,13 @@ function cli(argv) {
   const project = opt.project || projectHere();
   const out = t => console.log(opt.json ? JSON.stringify(t, null, 2) : fmt(t));
   const list = (pred) => {
-    const ts = load().tasks.filter(t => (opt.all || t.project === project) && pred(t));
+    const ts = load().tasks.filter(t => (opt.all || t.project === project) && (!opt.when || (t.when || 'later') === opt.when) && pred(t));
     if (opt.json) return console.log(JSON.stringify(ts, null, 2));
     if (!ts.length) return console.log('(none)');
     ts.forEach(t => console.log(fmt(t)));
   };
   switch (cmd) {
-    case 'add': return out(mutate(bd => ops.add(bd, by, { title: a, project, spec: opt.spec, deps: opt.deps, branch: opt.branch })));
+    case 'add': return out(mutate(bd => ops.add(bd, by, { title: a, project, spec: opt.spec, deps: opt.deps, branch: opt.branch, when: opt.when })));
     case 'list': return list(t => !opt.status || t.status === opt.status);
     case 'ready': { const bd = load(); return list(t => isReady(bd, t)); }
     case 'show': { const t = find(load(), a); if (opt.json) return out(t); console.log(fmt(t));
@@ -198,7 +201,7 @@ function serve(port) {
   }).listen(port, '127.0.0.1', () => console.log(`board: http://localhost:${port}  file: ${FILE}`));
 }
 
-module.exports = { ops, load, mutate, isReady, STATUSES };
+module.exports = { ops, load, mutate, isReady, STATUSES, WHENS };
 if (require.main === module) {
   try { cli(process.argv.slice(2)); }
   catch (e) { console.error('error: ' + e.message); process.exitCode = 1; }

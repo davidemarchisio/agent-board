@@ -38,6 +38,7 @@ Paste into `CLAUDE.md` / `AGENTS.md` (global or per project):
 ## task board
 All work is tracked with the `board` CLI (run `board` for usage). Identify yourself with `--by claude` (or opencode, etc).
 - Start of session: `board list` and `board ready`. Work only on tasks that exist on the board; if the user asks for something new, `board add` it first.
+- Pick work in this order: `when` is `now`, then `next`, then `later`; inside a horizon, board order is priority. Only the user sets `when`; if a new task needs one, ask instead of guessing.
 - Before starting a task: `board claim <id> --branch <branch>`.
 - When you stop, get blocked, or hand off: `board note <id> "what is done, what is next, where to look"`. Then `board block <id> "why"` or `board move <id> review` or `board done <id>`.
 - Never change priorities, titles, or other tasks unless asked. Order on the board is priority.

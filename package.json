@@ -1,0 +1,8 @@
+{
+  "name": "agent-board",
+  "version": "0.1.0",
+  "description": "task board for agents and humans",
+  "bin": { "board": "./board.js" },
+  "scripts": { "test": "node test.js" },
+  "license": "MIT"
+}

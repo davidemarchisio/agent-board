@@ -1,0 +1,155 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>agent board</title>
+<style>
+  :root { --bg:#f5f5f4; --card:#fff; --ink:#1c1917; --mute:#78716c; --line:#e7e5e4; --acc:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --card:#292524; --ink:#f5f5f4; --mute:#a8a29e; --line:#44403c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0 auto 0 0; }
+  select, input, textarea, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  main { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; padding:12px; min-height:calc(100vh - 50px); }
+  .col { background:rgba(127,127,127,.08); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:2px 4px 4px; }
+  .col.over { outline:2px dashed var(--acc); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:grab; }
+  .card.stale { border-left:3px solid #d97706; }
+  .card .id { color:var(--mute); font-size:12px; }
+  .card .title { font-weight:600; margin:2px 0; }
+  .card .meta { color:var(--mute); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .card .note { font-size:12px; margin-top:4px; border-top:1px solid var(--line); padding-top:4px; }
+  .owner { color:var(--acc); }
+  dialog { border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); width:min(680px,95vw); padding:16px; }
+  dialog::backdrop { background:rgba(0,0,0,.4); }
+  dialog form.fields { display:grid; grid-template-columns:90px 1fr; gap:6px 10px; align-items:center; }
+  dialog .hist { max-height:220px; overflow:auto; font-size:12px; margin:12px 0; border:1px solid var(--line); border-radius:6px; padding:6px; }
+  dialog .hist div { padding:2px 0; }
+  dialog .hist .by { color:var(--acc); }
+  dialog .row { display:flex; gap:8px; margin-top:8px; }
+  dialog .row textarea { flex:1; }
+  .err { color:#dc2626; }
+</style>
+<header>
+  <h1>agent board</h1>
+  <span id="err" class="err"></span>
+  <select id="project"><option value="">all projects</option></select>
+  <label><input type="checkbox" id="hideDone"> hide done</label>
+  <button class="primary" onclick="openAdd()">+ task</button>
+</header>
+<main id="board"></main>
+
+<dialog id="dlg">
+  <form class="fields" id="fields" onsubmit="return false">
+    <label>id</label><span id="f_id"></span>
+    <label>title</label><input name="title">
+    <label>project</label><input name="project">
+    <label>owner</label><input name="owner">
+    <label>branch</label><input name="branch">
+    <label>spec</label><input name="spec">
+    <label>deps</label><input name="deps" placeholder="ids, comma separated">
+  </form>
+  <div class="hist" id="hist"></div>
+  <div class="row"><textarea id="noteText" rows="2" placeholder="add a note / handoff"></textarea><button onclick="addNote()">note</button></div>
+  <div class="row">
+    <button class="primary" onclick="saveEdit()">save</button>
+    <button onclick="dlg.close()">close</button>
+    <span style="flex:1"></span>
+    <button onclick="del()">delete</button>
+  </div>
+</dialog>
+
+<script>
+const STATUSES = ['todo','doing','blocked','review','done'];
+let board = { tasks: [] }, current = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(op, body) {
+  const r = await fetch('/api/' + op, { method:'POST', body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error);
+  return j;
+}
+async function refresh() {
+  try {
+    const r = await fetch('/api/board'); const b = await r.json();
+    if (JSON.stringify(b) !== JSON.stringify(board)) { board = b; render(); }
+    $('#err').textContent = '';
+  } catch (e) { $('#err').textContent = 'server unreachable'; }
+}
+function render() {
+  const sel = $('#project'), cur = sel.value;
+  const projects = [...new Set(board.tasks.map(t => t.project).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">all projects</option>' + projects.map(p => `<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
+  try { if (!cur && localStorage.project && projects.includes(localStorage.project)) sel.value = localStorage.project; } catch {}
+  const filter = sel.value, hideDone = $('#hideDone').checked;
+  const stale = Date.now() - 24*3600e3;
+  $('#board').innerHTML = STATUSES.map(s => {
+    if (s === 'done' && hideDone) return '';
+    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter));
+    return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
+      <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
+  }).join('');
+  $('#board').style.gridTemplateColumns = `repeat(${hideDone ? 4 : 5},1fr)`;
+  function card(t) {
+    const last = t.history.filter(h => h.type === 'note' || (h.type === 'status' && t.status === 'blocked')).pop();
+    const blockedDeps = t.deps.filter(d => { const x = board.tasks.find(y => y.id === d); return !x || x.status !== 'done'; });
+    const isStale = t.status === 'doing' && new Date(t.updated_at) < stale;
+    return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})" title="${isStale ? 'no update in 24h' : ''}">
+      <div class="id">#${t.id} ${filter ? '' : esc(t.project)}</div>
+      <div class="title">${esc(t.title)}</div>
+      <div class="meta">${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}
+        ${t.deps.length ? `<span>deps ${t.deps.map(d => blockedDeps.includes(d) ? `<b>#${d}</b>` : '#'+d).join(' ')}</span>` : ''}</div>
+      ${last ? `<div class="note"><span class="owner">${esc(last.by)}</span> ${esc(last.text)}</div>` : ''}</div>`;
+  }
+}
+// drag & drop
+let dragId = null;
+function drag(e) { dragId = +e.target.closest('.card').dataset.id; e.dataTransfer.effectAllowed = 'move'; }
+function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('over'); }
+async function drop(e) {
+  e.preventDefault(); const col = e.currentTarget; col.classList.remove('over');
+  const t = board.tasks.find(t => t.id === dragId);
+  const before = e.target.closest('.card')?.dataset.id;
+  try {
+    if (t.status !== col.dataset.status) await api('move', { id: dragId, status: col.dataset.status });
+    if (before && +before !== dragId) await api('reorder', { id: dragId, before: +before });
+  } catch (err) { $('#err').textContent = err.message; }
+  refresh();
+}
+// dialog
+function openTask(id) {
+  current = board.tasks.find(t => t.id === id);
+  const f = $('#fields'); $('#f_id').textContent = '#' + id + '  [' + current.status + ']';
+  for (const k of ['title','project','owner','branch','spec']) f[k].value = current[k] || '';
+  f.deps.value = current.deps.join(', ');
+  $('#hist').innerHTML = current.history.map(h => `<div>${h.at.slice(0,16).replace('T',' ')} <span class="by">${esc(h.by)}</span> ${h.type}: ${esc(h.text)}</div>`).join('');
+  $('#noteText').value = '';
+  dlg.showModal();
+}
+async function saveEdit() {
+  const f = $('#fields');
+  const deps = f.deps.value.split(/[ ,]+/).filter(Boolean).map(Number);
+  try { await api('edit', { id: current.id, title: f.title.value, project: f.project.value, owner: f.owner.value, branch: f.branch.value, spec: f.spec.value, deps }); dlg.close(); refresh(); }
+  catch (e) { $('#err').textContent = e.message; }
+}
+async function addNote() {
+  const text = $('#noteText').value.trim(); if (!text) return;
+  try { await api('note', { id: current.id, text }); await refresh(); openTask(current.id); }
+  catch (e) { $('#err').textContent = e.message; }
+}
+async function del() {
+  if (!confirm('delete #' + current.id + '?')) return;
+  await api('del', { id: current.id }); dlg.close(); refresh();
+}
+async function openAdd() {
+  const title = prompt('task title'); if (!title) return;
+  const project = $('#project').value || prompt('project') || '';
+  try { await api('add', { title, project }); refresh(); } catch (e) { $('#err').textContent = e.message; }
+}
+$('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };
+$('#hideDone').onchange = render;
+refresh(); setInterval(refresh, 2000);
+</script>

@@ -50,7 +50,7 @@ npm test
 
 ## agent rules in this repo
 
-`AGENTS.md` holds the rules block (OpenCode, Codex, and others read it). `CLAUDE.md` is one line, `@AGENTS.md`, so Claude Code reads the same file. Copy both into any project, or paste the block into `~/.claude/CLAUDE.md` once for every project.
+`AGENTS.md` holds the rules block (OpenCode, Codex, and others read it). `CLAUDE.md` is a copy of it so a Claude-only setup needs one file. Copy both into any project, or paste the block into `~/.claude/CLAUDE.md` once for every project.
 
 ## claude code stop hook (optional enforcement)
 

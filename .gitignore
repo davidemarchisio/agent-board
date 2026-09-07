@@ -144,3 +144,7 @@ vite.config.ts.timestamp-*
 
 # private
 chat-transcript.txt
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json

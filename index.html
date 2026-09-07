@@ -10,7 +10,7 @@
   header h1 { font-size:16px; margin:0 auto 0 0; }
   select, input, textarea, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
   button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
-  main { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; padding:12px; min-height:calc(100vh - 50px); }
+  main { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; padding:12px; min-height:calc(100vh - 50px); }
   .col { background:rgba(127,127,127,.08); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; }
   .col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:2px 4px 4px; }
   .col.over { outline:2px dashed var(--acc); }
@@ -61,7 +61,7 @@
 </dialog>
 
 <script>
-const STATUSES = ['todo','doing','blocked','review','done'];
+const STATUSES = ['todo','doing','blocked','review','merge','done'];
 let board = { tasks: [] }, current = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -92,7 +92,7 @@ function render() {
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
   }).join('');
-  $('#board').style.gridTemplateColumns = `repeat(${hideDone ? 4 : 5},1fr)`;
+  $('#board').style.gridTemplateColumns = `repeat(${hideDone ? 5 : 6},1fr)`;
   function card(t) {
     const last = t.history.filter(h => h.type === 'note' || (h.type === 'status' && t.status === 'blocked')).pop();
     const blockedDeps = t.deps.filter(d => { const x = board.tasks.find(y => y.id === d); return !x || x.status !== 'done'; });

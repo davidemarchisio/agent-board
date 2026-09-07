@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 
 const FILE = process.env.BOARD_FILE || path.join(os.homedir(), '.agent-board', 'board.json');
 const LOCK = FILE + '.lock';
-const STATUSES = ['todo', 'doing', 'blocked', 'review', 'done'];
+const STATUSES = ['todo', 'doing', 'blocked', 'review', 'merge', 'done'];
 
 // ---------- storage ----------
 function load() {

@@ -19,7 +19,7 @@ board serve       # http://localhost:4444
 ```
 board add "title" [--spec path] [--dep id]... [--branch b]
 board list [--status s] [--all]     board ready [--all]     board show <id>
-board claim <id> [--branch b]       board move <id> todo|doing|blocked|review|done
+board claim <id> [--branch b]       board move <id> todo|doing|blocked|review|merge|done
 board done <id>   board block <id> "why"   board note <id> "text"
 board edit <id> [--title t] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
 board rm <id>     board file
@@ -47,3 +47,18 @@ All work is tracked with the `board` CLI (run `board` for usage). Identify yours
 ```
 npm test
 ```
+
+## agent rules in this repo
+
+`AGENTS.md` holds the rules block (OpenCode, Codex, and others read it). `CLAUDE.md` is one line, `@AGENTS.md`, so Claude Code reads the same file. Copy both into any project, or paste the block into `~/.claude/CLAUDE.md` once for every project.
+
+## claude code stop hook (optional enforcement)
+
+`hooks/stop.js` refuses to let Claude end its turn while a task it claimed sits in `doing` with no board update in 10 minutes. Claude gets the message and is told to add a note or move the task. It nags once per stop, not in a loop. Add to `~/.claude/settings.json`:
+
+```json
+{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "timeout": 10,
+  "command": "BOARD_AGENT=claude node /home/pingu/projects/agent-board/agent-board/hooks/stop.js" } ] } ] } }
+```
+
+OpenCode has no hooks; it relies on `AGENTS.md` only.

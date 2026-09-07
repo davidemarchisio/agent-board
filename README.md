@@ -58,7 +58,7 @@ npm test
 
 ```json
 { "hooks": { "Stop": [ { "hooks": [ { "type": "command", "timeout": 10,
-  "command": "BOARD_AGENT=claude node /home/pingu/projects/agent-board/agent-board/hooks/stop.js" } ] } ] } }
+  "command": "BOARD_AGENT=claude node /home/pingu/projects/agent-board/hooks/stop.js" } ] } ] } }
 ```
 
 OpenCode has no hooks; it relies on `AGENTS.md` only.

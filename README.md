@@ -65,7 +65,7 @@ board file                                print the board path
 
 Flags that work on every command:
 
-- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment, then your username. Agents pass `--by claude`, `--by opencode`, and so on.
+- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment. Agents pass `--by claude`, `--by opencode`, and so on. Required (via `--by` or `BOARD_AGENT`) on every command that writes to the board — `add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`. Read-only commands (`list`, `ready`, `show`) fall back to your OS username when neither is set.
 - `--project <name>` overrides the project. Default is the name of the git root of the current directory, or the current directory name. `list` and `ready` show only the current project unless `--all`.
 - `--json` prints raw JSON instead of the one-line format.
 
@@ -123,6 +123,28 @@ Identify yourself on every command with `--by <your name>` (claude, opencode, co
 - Never change priorities, titles, or other agents' tasks unless asked. Order on the board is priority.
 ```
 
+## Identity is required, not requested
+
+Telling agents "identify yourself with `--by`" in a rules block is a request, not a guarantee — an agent can just forget, and nothing stops it. Early on, tasks were showing up owned by `pingu` (the OS user running the agent) instead of `claude`, because a command ran without `--by` and without `BOARD_AGENT` set. `who()` used to fall back silently to `os.userInfo().username`, so the mistake never surfaced.
+
+`board.js` now refuses to guess. Any write command (`add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`) run with neither `--by` nor `BOARD_AGENT` set exits 1:
+
+```
+error: no identity: pass --by <name> or set BOARD_AGENT (e.g. --by claude)
+```
+
+Read-only commands (`list`, `ready`, `show`) are unaffected — you don't need an identity to look at the board.
+
+This only works if `BOARD_AGENT` is actually set before the agent's first write, so each integration sets it once per session instead of relying on the agent to type `--by` every time:
+
+| agent | how `BOARD_AGENT` gets set |
+| --- | --- |
+| Claude Code | `"env": {"BOARD_AGENT": "claude"}` in `.claude/settings.json` — applied to every Bash tool call |
+| OpenCode | `hooks/opencode-board-session.js`'s `shell.env` hook sets it alongside `BOARD_SESSION` |
+| Codex | nothing automatic — no settings/hook surface for env injection, so either pass `--by codex` on every write command, or `export BOARD_AGENT=codex` in the shell that launches codex |
+
+With `BOARD_AGENT` set, `--by` becomes optional — the agent no longer has to remember it, and forgetting can no longer produce a wrongly-owned task.
+
 ## Who owns a task
 
 `--by claude` says which tool claimed a task. It does not say which window. Run four Claude sessions on four different tasks and every one of them owns tasks as `claude`, which makes "is this mine?" unanswerable.
@@ -147,10 +169,13 @@ Two pieces per agent. The rules block tells the agent the board exists. The hook
 
 Rules: paste the block into `~/.claude/CLAUDE.md`, or drop `CLAUDE.md` in a project root.
 
-Hook: `~/.claude/settings.json` for every project, or `<project>/.claude/settings.json` for one. This repo's own `.claude/settings.json` is a working copy.
+Hook and env: `~/.claude/settings.json` for every project, or `<project>/.claude/settings.json` for one. This repo's own `.claude/settings.json` is a working copy.
 
 ```json
 {
+  "env": {
+    "BOARD_AGENT": "claude"
+  },
   "hooks": {
     "Stop": [
       {
@@ -167,7 +192,7 @@ Hook: `~/.claude/settings.json` for every project, or `<project>/.claude/setting
 }
 ```
 
-Nothing else to do: Claude Code already puts `CLAUDE_CODE_SESSION_ID` in the environment, so owners come out session-tagged on their own.
+The `env` block sets `BOARD_AGENT=claude` for every Bash tool call in the session, so `--by` is no longer required and can't be forgotten. `CLAUDE_CODE_SESSION_ID` is already in the environment, so owners come out session-tagged on their own.
 
 ### Codex
 
@@ -175,13 +200,13 @@ Rules: paste the block into `~/.codex/AGENTS.md`, or drop `AGENTS.md` in a proje
 
 Hook: copy `hooks/codex-hooks.json` to `~/.codex/hooks.json` (or `<project>/.codex/hooks.json`) and fix the path in it. Same script, same exit-2 contract. Codex reviews unmanaged hooks before it will run them, so expect a trust prompt the first time.
 
-Codex does not hand tools a session id, so start it with one:
+Codex does not hand tools a session id, and has no settings/hook surface for injecting env vars either, so start it with both:
 
 ```
-BOARD_SESSION=$(uuidgen) codex
+BOARD_AGENT=codex BOARD_SESSION=$(uuidgen) codex
 ```
 
-Without that, every Codex window owns tasks as plain `codex` and the hook stays quiet rather than nagging the wrong window.
+Without `BOARD_SESSION`, every Codex window owns tasks as plain `codex` and the hook stays quiet rather than nagging the wrong window. Without `BOARD_AGENT`, every write command needs an explicit `--by codex` or it is refused.
 
 ### OpenCode
 
@@ -193,7 +218,9 @@ Session id: copy or symlink `hooks/opencode-board-session.js` into `~/.config/op
 ln -s "$PWD/hooks/opencode-board-session.js" ~/.config/opencode/plugins/board-session.js
 ```
 
-No stop hook. OpenCode has a `session.idle` event, but a plugin is told the turn ended rather than asked, so it cannot refuse one the way exit 2 does. OpenCode gets session-tagged owners and the rules block, not enforcement.
+The same plugin sets `BOARD_AGENT=opencode` alongside `BOARD_SESSION`, so `--by` is optional and can't be forgotten.
+
+No stop hook. OpenCode has a `session.idle` event, but a plugin is told the turn ended rather than asked, so it cannot refuse one the way exit 2 does. OpenCode gets session-tagged owners and the rules block, not turn-blocking enforcement — identity enforcement (the `BOARD_AGENT` env var) still applies, since that lives in `board.js` itself.
 
 ### Another agent
 

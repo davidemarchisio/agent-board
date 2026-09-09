@@ -4,13 +4,14 @@ const assert = require('assert');
 const fs = require('fs'), os = require('os'), path = require('path');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'board-'));
 const env = { ...process.env, BOARD_FILE: path.join(dir, 'b.json') };
-delete env.BOARD_SESSION; delete env.CLAUDE_CODE_SESSION_ID; // keep identities bare unless a test sets one
+delete env.BOARD_SESSION; delete env.CLAUDE_CODE_SESSION_ID; delete env.BOARD_AGENT; // keep identities bare unless a test sets one
 const run = (...a) => execFileSync('node', [path.join(__dirname, 'board.js'), ...a], { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
+assert.throws(() => run('add', 'no identity', '--project', 'p'), /no identity/);
 run('add', 'write spec', '--project', 'p', '--by', 'pingu');
 run('add', 'implement', '--project', 'p', '--dep', '1', '--by', 'pingu', '--when', 'now');
 assert.match(run('list', '--all', '--when', 'now'), /#2 \[todo now\]/); assert.doesNotMatch(run('list', '--all', '--when', 'now'), /#1/);
-assert.throws(() => run('edit', '2', '--when', 'someday'), /when must be/);
+assert.throws(() => run('edit', '2', '--when', 'someday', '--by', 'pingu'), /when must be/);
 assert.match(run('ready', '--all'), /#1/); assert.doesNotMatch(run('ready', '--all'), /#2/);
 run('claim', '1', '--by', 'claude', '--branch', 'feat/spec');
 assert.throws(() => run('claim', '1', '--by', 'opencode'), /owned by claude/);
@@ -33,7 +34,7 @@ assert.strictEqual(JSON.parse(run('show', '3', '--json')).history.at(-1).by, 'cl
 
 // 20 parallel adds must all land (lock + atomic write).
 Promise.all(Array.from({ length: 20 }, (_, i) => new Promise((res, rej) => {
-  const p = spawn('node', [path.join(__dirname, 'board.js'), 'add', 'par ' + i, '--project', 'p'], { env });
+  const p = spawn('node', [path.join(__dirname, 'board.js'), 'add', 'par ' + i, '--project', 'p', '--by', 'pingu'], { env });
   p.on('exit', c => c === 0 ? res() : rej(new Error('exit ' + c)));
 }))).then(() => {
   const b = JSON.parse(fs.readFileSync(env.BOARD_FILE, 'utf8'));

@@ -5,6 +5,10 @@ The board is one file, `~/.agent-board/board.json`, shared by every project and 
 Your project is detected from the git root of the current directory.
 
 Identify yourself on every command with `--by <your name>` (claude, opencode, codex, ...).
+`board.js` refuses to run write commands (add/claim/move/done/block/note/edit/rm) without an identity.
+Claude Code and OpenCode set `BOARD_AGENT` automatically (see `.claude/settings.json` and
+`hooks/opencode-board-session.js`) — codex has no equivalent hook, so it must pass `--by codex`
+on every write command, or its launch shell must `export BOARD_AGENT=codex` before starting codex.
 
 - **Start of session:** run `board list` and `board ready`. Work only on tasks that exist on the board. If the user asks for something new, `board add "title"` first.
 - **Pick work in this order:** `when` is `now`, then `next`, then `later`; inside a horizon, board order is priority. Only the user sets `when`; if a new task needs one, ask instead of guessing.

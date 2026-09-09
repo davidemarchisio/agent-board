@@ -1,4 +1,7 @@
 {
+  "env": {
+    "BOARD_AGENT": "claude"
+  },
   "hooks": {
     "Stop": [
       {

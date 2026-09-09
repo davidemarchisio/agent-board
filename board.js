@@ -118,7 +118,12 @@ const ops = {
 };
 
 // ---------- CLI ----------
-function who() { return process.env.BOARD_AGENT || os.userInfo().username; }
+const MUTATING = ['add', 'claim', 'move', 'done', 'block', 'note', 'edit', 'rm'];
+function who(required) {
+  if (process.env.BOARD_AGENT) return process.env.BOARD_AGENT;
+  if (required) throw new Error('no identity: pass --by <name> or set BOARD_AGENT (e.g. --by claude)');
+  return os.userInfo().username;
+}
 // Distinguishes concurrent sessions of the same agent. Claude Code sets its own var;
 // other agents set BOARD_SESSION themselves (opencode: shell.env plugin, codex: at launch).
 function session() {
@@ -153,13 +158,13 @@ const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [-
   done <id>  block <id> "why"   note <id> "text"
   edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
   rm <id>    serve [port]       file
-identity: --by <name> or BOARD_AGENT env (default: $USER), plus :<session> when
-  BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
+identity: --by <name> or BOARD_AGENT env, required for add/claim/move/done/block/note/edit/rm,
+  plus :<session> when BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
 
 function cli(argv) {
   const { pos, opt } = parseArgs(argv);
   const [cmd, a, b] = pos;
-  const by = (opt.by || who()) + session();
+  const by = (opt.by || who(MUTATING.includes(cmd))) + session();
   const project = opt.project || projectHere();
   const out = t => console.log(opt.json ? JSON.stringify(t, null, 2) : fmt(t));
   const list = (pred) => {

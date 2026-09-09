@@ -137,11 +137,17 @@ So the CLI appends a session suffix when it can find one: owners come out as `cl
 
 One consequence: a second session of the same agent can no longer claim a task the first left in doing. That is usually what you want. `board edit <id> --owner ""` takes it over anyway.
 
-## Claude Code stop hook (optional)
+## Installing in your agent
 
-Rules are suggestions. `hooks/stop.js` adds one piece of enforcement for Claude Code: it refuses to let Claude end its turn while a task **this session** claimed sits in doing with no board activity for 10 minutes. Claude receives the message and is told to add a note or move the task. It nags once per stop, not in a loop. It matches on the `session_id` the hook gets on stdin against the owner suffix above, so parallel sessions never hear about each other's tasks.
+Two pieces per agent. The rules block tells the agent the board exists. The hook is the part that does not rely on the agent remembering.
 
-Register it in `~/.claude/settings.json` for every project, or in `<project>/.claude/settings.json` for one:
+`hooks/stop.js` refuses to end a turn while a task **this session** claimed sits in doing with no board activity for 10 minutes. The agent gets the message and is told to add a note or move the task. Claude Code and Codex send the same JSON on stdin and both read exit 2 plus stderr as "keep going", so one script covers both. It nags at most once a minute per session and never about another session's tasks.
+
+### Claude Code
+
+Rules: paste the block into `~/.claude/CLAUDE.md`, or drop `CLAUDE.md` in a project root.
+
+Hook: `~/.claude/settings.json` for every project, or `<project>/.claude/settings.json` for one. This repo's own `.claude/settings.json` is a working copy.
 
 ```json
 {
@@ -161,7 +167,37 @@ Register it in `~/.claude/settings.json` for every project, or in `<project>/.cl
 }
 ```
 
-Codex has the same thing: a `Stop` hook in `hooks.json` or `[hooks]` in `config.toml`, with `session_id` on stdin. OpenCode has a `session.idle` plugin event, though a plugin cannot refuse the stop the way exit 2 does. Neither is wired up here yet.
+Nothing else to do: Claude Code already puts `CLAUDE_CODE_SESSION_ID` in the environment, so owners come out session-tagged on their own.
+
+### Codex
+
+Rules: paste the block into `~/.codex/AGENTS.md`, or drop `AGENTS.md` in a project root.
+
+Hook: copy `hooks/codex-hooks.json` to `~/.codex/hooks.json` (or `<project>/.codex/hooks.json`) and fix the path in it. Same script, same exit-2 contract. Codex reviews unmanaged hooks before it will run them, so expect a trust prompt the first time.
+
+Codex does not hand tools a session id, so start it with one:
+
+```
+BOARD_SESSION=$(uuidgen) codex
+```
+
+Without that, every Codex window owns tasks as plain `codex` and the hook stays quiet rather than nagging the wrong window.
+
+### OpenCode
+
+Rules: paste the block into `~/.config/opencode/AGENTS.md`, or drop `AGENTS.md` in a project root.
+
+Session id: copy or symlink `hooks/opencode-board-session.js` into `~/.config/opencode/plugins/` (or `.opencode/plugins/` for one project). Everything in those directories loads at startup. The `plugin` array in `opencode.json` is for npm package names, not file paths.
+
+```
+ln -s "$PWD/hooks/opencode-board-session.js" ~/.config/opencode/plugins/board-session.js
+```
+
+No stop hook. OpenCode has a `session.idle` event, but a plugin is told the turn ended rather than asked, so it cannot refuse one the way exit 2 does. OpenCode gets session-tagged owners and the rules block, not enforcement.
+
+### Another agent
+
+The hook needs two things from its host: the session id on stdin as `session_id`, and exit 2 meaning "keep working". If your agent has both, point it at `hooks/stop.js` with `BOARD_AGENT` set to its name. If it can only inject environment variables, set `BOARD_SESSION` and you still get correct ownership without the nag.
 
 ## Test
 
@@ -176,7 +212,8 @@ Runs a CLI round trip and 20 parallel writers against a temporary board.
 ```
 board.js      CLI, storage, and the web server. Everything.
 index.html    the page
-hooks/stop.js Claude Code stop hook
+hooks/stop.js                    stop hook for Claude Code and Codex
+hooks/codex-hooks.json           Codex hooks.json to copy
 hooks/opencode-board-session.js  OpenCode plugin: session id -> BOARD_SESSION
 test.js       the check
 AGENTS.md     rules block for agents

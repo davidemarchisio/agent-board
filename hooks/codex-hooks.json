@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "statusMessage": "checking the board",
+            "command": "BOARD_AGENT=codex node /absolute/path/to/agent-board/hooks/stop.js"
+          }
+        ]
+      }
+    ]
+  }
+}

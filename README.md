@@ -38,7 +38,7 @@ The board file is `~/.agent-board/board.json`. Override with `BOARD_FILE=/path/t
 
 `board serve [port]` runs a tiny local server on 127.0.0.1 and serves the board.
 
-- Six columns: todo, doing, blocked, review, merge, done.
+- Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.
 - Drag a card between columns to change status. Drag within a column to reorder.
 - Click a card to edit title, project, when, owner, branch, spec, deps, and to read the history or add a note.
 - Filter by project and by when. Hide the done column.
@@ -119,7 +119,11 @@ Identify yourself on every command with `--by <your name>` (claude, opencode, co
 - Start of session: run `board list` and `board ready`. Work only on tasks that exist on the board. If the user asks for something new, `board add "title"` first.
 - Pick work in this order: `when` is `now`, then `next`, then `later`; inside a horizon, board order is priority. Only the user sets `when`; if a new task needs one, ask instead of guessing.
 - Before starting a task: `board claim <id> --branch <branch>`.
-- When you stop, get blocked, or hand off: `board note <id> "what is done, what is next, where to look"`, then one of `board block <id> "why"`, `board move <id> review`, `board move <id> merge`, or `board done <id>`.
+- When you stop, get blocked, or hand off: `board note <id> "what is done, what is next, where to look"`, then one of:
+  - `board block <id> "why"` — you need a human's input or decision before you can keep going.
+  - `board move <id> review` — the work is done and ready for someone to review.
+  - `board move <id> merge` — the PR is reviewed and ready to merge, and a human needs to merge it. Agents never merge PRs themselves.
+  - `board done <id>` — fully finished (already merged, or no PR involved).
 - Never change priorities, titles, or other agents' tasks unless asked. Order on the board is priority.
 ```
 

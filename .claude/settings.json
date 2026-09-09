@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "BOARD_AGENT=claude node \"$CLAUDE_PROJECT_DIR/hooks/stop.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

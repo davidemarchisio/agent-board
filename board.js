@@ -78,7 +78,8 @@ const ops = {
   },
   claim(board, by, { id, branch }) {
     const t = find(board, id);
-    if (t.owner && t.owner !== by && t.status === 'doing') throw new Error('#' + id + ' is owned by ' + t.owner);
+    if (t.owner && t.owner !== by && t.status === 'doing')
+      throw new Error('#' + id + ' is owned by ' + t.owner + ' (board edit ' + id + ' --owner "" to take it over)');
     t.owner = by;
     if (branch) t.branch = branch;
     record(t, by, 'status', t.status + ' -> doing');
@@ -118,6 +119,12 @@ const ops = {
 
 // ---------- CLI ----------
 function who() { return process.env.BOARD_AGENT || os.userInfo().username; }
+// Distinguishes concurrent sessions of the same agent. Claude Code sets its own var;
+// other agents set BOARD_SESSION themselves (opencode: shell.env plugin, codex: at launch).
+function session() {
+  const s = process.env.BOARD_SESSION || process.env.CLAUDE_CODE_SESSION_ID || '';
+  return s ? ':' + s.slice(0, 8) : '';
+}
 function projectHere() {
   try { return path.basename(execSync('git rev-parse --show-toplevel', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()); }
   catch { return path.basename(process.cwd()); }
@@ -146,12 +153,13 @@ const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [-
   done <id>  block <id> "why"   note <id> "text"
   edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
   rm <id>    serve [port]       file
-identity: --by <name> or BOARD_AGENT env (default: $USER). project: --project or git root name.`;
+identity: --by <name> or BOARD_AGENT env (default: $USER), plus :<session> when
+  BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
 
 function cli(argv) {
   const { pos, opt } = parseArgs(argv);
   const [cmd, a, b] = pos;
-  const by = opt.by || who();
+  const by = (opt.by || who()) + session();
   const project = opt.project || projectHere();
   const out = t => console.log(opt.json ? JSON.stringify(t, null, 2) : fmt(t));
   const list = (pred) => {

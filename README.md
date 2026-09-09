@@ -123,9 +123,23 @@ Identify yourself on every command with `--by <your name>` (claude, opencode, co
 - Never change priorities, titles, or other agents' tasks unless asked. Order on the board is priority.
 ```
 
+## Who owns a task
+
+`--by claude` says which tool claimed a task. It does not say which window. Run four Claude sessions on four different tasks and every one of them owns tasks as `claude`, which makes "is this mine?" unanswerable.
+
+So the CLI appends a session suffix when it can find one: owners come out as `claude:db0f1516`, `opencode:9f2a1c04`. It reads `BOARD_SESSION` first, then `CLAUDE_CODE_SESSION_ID`, and falls back to the bare name if neither is set. Agents keep passing `--by claude`; the suffix is added for them.
+
+| agent | where the session id comes from |
+| --- | --- |
+| Claude Code | `CLAUDE_CODE_SESSION_ID`, already in the environment |
+| OpenCode | `hooks/opencode-board-session.js`, a plugin using the `shell.env` hook |
+| Codex | nothing automatic; launch it as `BOARD_SESSION=$(uuidgen) codex` |
+
+One consequence: a second session of the same agent can no longer claim a task the first left in doing. That is usually what you want. `board edit <id> --owner ""` takes it over anyway.
+
 ## Claude Code stop hook (optional)
 
-Rules are suggestions. `hooks/stop.js` adds one piece of enforcement for Claude Code: it refuses to let Claude end its turn while a task Claude claimed sits in doing with no board activity for 10 minutes. Claude receives the message and is told to add a note or move the task. It nags once per stop, not in a loop.
+Rules are suggestions. `hooks/stop.js` adds one piece of enforcement for Claude Code: it refuses to let Claude end its turn while a task **this session** claimed sits in doing with no board activity for 10 minutes. Claude receives the message and is told to add a note or move the task. It nags once per stop, not in a loop. It matches on the `session_id` the hook gets on stdin against the owner suffix above, so parallel sessions never hear about each other's tasks.
 
 Register it in `~/.claude/settings.json` for every project, or in `<project>/.claude/settings.json` for one:
 
@@ -147,7 +161,7 @@ Register it in `~/.claude/settings.json` for every project, or in `<project>/.cl
 }
 ```
 
-OpenCode and Codex have no hooks. They rely on the rules block alone.
+Codex has the same thing: a `Stop` hook in `hooks.json` or `[hooks]` in `config.toml`, with `session_id` on stdin. OpenCode has a `session.idle` plugin event, though a plugin cannot refuse the stop the way exit 2 does. Neither is wired up here yet.
 
 ## Test
 
@@ -163,6 +177,7 @@ Runs a CLI round trip and 20 parallel writers against a temporary board.
 board.js      CLI, storage, and the web server. Everything.
 index.html    the page
 hooks/stop.js Claude Code stop hook
+hooks/opencode-board-session.js  OpenCode plugin: session id -> BOARD_SESSION
 test.js       the check
 AGENTS.md     rules block for agents
 CLAUDE.md     same block, for Claude-only setups

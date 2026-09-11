@@ -34,6 +34,8 @@ board serve            # opens http://localhost:4444
 
 The board file is `~/.agent-board/board.json`. Override with `BOARD_FILE=/path/to/file`.
 
+That gets you the CLI. To wire the board into an actual agent — rules file, env var, stop hook — run `node install.js --local` (or `--global` for every project); see [Installing in your agent](#installing-in-your-agent) below for what it does and how to do it by hand.
+
 ## The page
 
 `board serve [port]` runs a tiny local server on 127.0.0.1 and serves the board.
@@ -65,7 +67,7 @@ board file                                print the board path
 
 Flags that work on every command:
 
-- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment. Agents pass `--by claude`, `--by opencode`, and so on. Required (via `--by` or `BOARD_AGENT`) on every command that writes to the board — `add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`. Read-only commands (`list`, `ready`, `show`) fall back to your OS username when neither is set.
+- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment. Agents pass `--by claude`, `--by opencode`, and so on. Required (via `--by` or `BOARD_AGENT`) on every command that writes to the board — `add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`. Read-only commands (`list`, `ready`, `show`) fall back to your OS username when neither is set. The name you pass isn't necessarily the name that lands in `owner`/`by` — see [Who owns a task](#who-owns-a-task): when a session id is available the CLI appends it, so `--by claude` shows up as `claude:a1b2c3d4`.
 - `--project <name>` overrides the project. Default is the name of the git root of the current directory, or the current directory name. `list` and `ready` show only the current project unless `--all`.
 - `--json` prints raw JSON instead of the one-line format.
 
@@ -81,21 +83,23 @@ Flags that work on every command:
       "project": "agent-board",
       "status": "doing",
       "when": "now",
-      "owner": "claude",
+      "owner": "claude:a1b2c3d4",
       "branch": "feat/spec",
       "spec": "docs/spec.md",
       "deps": [],
       "created_at": "2026-09-07T20:49:17.138Z",
       "updated_at": "2026-09-07T21:02:40.512Z",
       "history": [
-        { "at": "2026-09-07T20:49:17.138Z", "by": "pingu",  "type": "create", "text": "write the spec" },
-        { "at": "2026-09-07T20:55:01.004Z", "by": "claude", "type": "status", "text": "todo -> doing" },
-        { "at": "2026-09-07T21:02:40.512Z", "by": "claude", "type": "note",   "text": "schema done, page next" }
+        { "at": "2026-09-07T20:49:17.138Z", "by": "pingu",           "type": "create", "text": "write the spec" },
+        { "at": "2026-09-07T20:55:01.004Z", "by": "claude:a1b2c3d4", "type": "status", "text": "todo -> doing" },
+        { "at": "2026-09-07T21:02:40.512Z", "by": "claude:a1b2c3d4", "type": "note",   "text": "schema done, page next" }
       ]
     }
   ]
 }
 ```
+
+`owner` and `history[].by` are whatever `--by`/`BOARD_AGENT` resolved to, session suffix included (see [Who owns a task](#who-owns-a-task)) — an agent run without a session id (Codex without `BOARD_SESSION`, for example) shows up as the bare name, e.g. `codex`.
 
 Array order is priority. `status` is the only place status is stored. `history` is append-only. You can edit the file by hand; the CLI and the page pick it up.
 
@@ -103,7 +107,7 @@ Writes go through a lock file and an atomic rename, so two agents writing at the
 
 ## Telling agents about the board
 
-Agents only know the board exists if their instructions say so. `AGENTS.md` in this repo holds the rules block. `CLAUDE.md` is an identical copy for setups that only use Claude Code. Copy either into a project root, or paste the block into `~/.claude/CLAUDE.md` once to cover every project.
+Agents only know the board exists if their instructions say so. `node install.js` (see [Installing in your agent](#installing-in-your-agent)) drops this block into `CLAUDE.md`/`AGENTS.md` for you. By hand: `AGENTS.md` in this repo holds the rules block, `CLAUDE.md` is an identical copy for setups that only use Claude Code. Copy either into a project root, or paste the block into `~/.claude/CLAUDE.md` once to cover every project.
 
 The block:
 

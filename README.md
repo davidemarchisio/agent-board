@@ -36,7 +36,7 @@ board serve            # opens http://localhost:4444
 
 The board file is `~/.agent-board/board.json`. Override with `BOARD_FILE=/path/to/file`.
 
-That gets you the CLI. To wire the board into an actual agent — rules file, env var, stop hook — run `node install.js --local` (or `--global` for every project); see [Installing in your agent](#installing-in-your-agent) below for what it does and how to do it by hand.
+That gets you the CLI. To wire the board into an actual agent — rules file, env var, stop hook — run `node install.js --local` (or `--global` for every project); `node uninstall.js` reverses it. See [Installing in your agent](#installing-in-your-agent) below for what it does and how to do it by hand.
 
 ## The page
 
@@ -180,6 +180,8 @@ node install.js --global        # every project, via your home config
 
 Installs all three agents (`claude`, `codex`, `opencode`) by default. Pass `--agents claude` (or any subset) to narrow it. It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run — it skips anything already installed and never overwrites a rules file it didn't write.
 
+To reverse it: `node uninstall.js --local [dir]` or `node uninstall.js --global`, same `--agents` flag. It removes exactly what `install.js` added — the rules block (deleting the file only if that block was all it contained), the stop hook entry, the OpenCode plugin symlink — and leaves everything else in those files alone: your own notes above the rules block, unrelated hooks, other env vars. The `board` CLI itself stays linked (other projects may use it); add `--unlink-cli` to remove that too.
+
 The rest of this section is what it does under the hood, for anyone installing by hand or into an agent it doesn't cover.
 
 Two pieces per agent. The rules block tells the agent the board exists. The hook is the part that does not rely on the agent remembering.
@@ -260,6 +262,7 @@ Runs a CLI round trip and 20 parallel writers against a temporary board.
 ```
 board.js      CLI, storage, and the web server. Everything.
 install.js    wires the board into a project or globally
+uninstall.js  reverses install.js
 index.html    the page
 hooks/stop.js                    stop hook for Claude Code and Codex
 hooks/codex-hooks.json           Codex hooks.json to copy

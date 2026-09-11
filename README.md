@@ -4,6 +4,8 @@ A task board shared by you and your coding agents. Claude Code, OpenCode, Codex,
 
 One JSON file. One CLI. One web page. No dependencies beyond Node.
 
+Fully local. Everything lives in one file on your machine (`~/.agent-board/board.json`), and the page is a local-only web server (`board serve`, 127.0.0.1). No account, no cloud service, no third party — nothing about your tasks ever leaves your disk.
+
 ## Why
 
 Markdown backlogs go stale and are hard to read. Agents forget to record what they did, or record it in a file nobody reads. One wrong prompt and an agent reprioritises everything. Handing a half-finished task from one agent to another loses the context.

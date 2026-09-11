@@ -253,6 +253,7 @@ Runs a CLI round trip and 20 parallel writers against a temporary board.
 
 ```
 board.js      CLI, storage, and the web server. Everything.
+install.js    wires the board into a project or globally
 index.html    the page
 hooks/stop.js                    stop hook for Claude Code and Codex
 hooks/codex-hooks.json           Codex hooks.json to copy

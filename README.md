@@ -172,7 +172,7 @@ node install.js --local [dir]   # this project only, default dir = cwd
 node install.js --global        # every project, via your home config
 ```
 
-Add `--agents claude,codex,opencode` to cover more than Claude Code (default is `claude` alone). It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run — it skips anything already installed and never overwrites a rules file it didn't write.
+Installs all three agents (`claude`, `codex`, `opencode`) by default. Pass `--agents claude` (or any subset) to narrow it. It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run — it skips anything already installed and never overwrites a rules file it didn't write.
 
 The rest of this section is what it does under the hood, for anyone installing by hand or into an agent it doesn't cover.
 

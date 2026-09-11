@@ -15,7 +15,7 @@ const ROOT = __dirname; // this agent-board checkout
 const RULES_MARKER = 'All work is tracked with the `board` CLI';
 
 function parseArgs(argv) {
-  const opts = { scope: null, dir: process.cwd(), agents: ['claude'] };
+  const opts = { scope: null, dir: process.cwd(), agents: ['claude', 'codex', 'opencode'] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--local') { opts.scope = 'local'; if (argv[i + 1] && !argv[i + 1].startsWith('--')) opts.dir = path.resolve(argv[++i]); }
@@ -37,7 +37,7 @@ function usage() {
 
 --local installs into a project (default: current directory).
 --global installs into your home config, covering every project.
---agents defaults to "claude".`);
+--agents defaults to all three: claude,codex,opencode.`);
 }
 
 function ensureBoardCli() {

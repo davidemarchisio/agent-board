@@ -40,6 +40,8 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 
 ## The page
 
+![agent-board web page, showing tasks across todo, doing, blocked, review, merge, and done columns](docs/board.jpg)
+
 `board serve [port]` runs a tiny local server on 127.0.0.1 and serves the board.
 
 - Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.

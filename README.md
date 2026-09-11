@@ -165,6 +165,17 @@ One consequence: a second session of the same agent can no longer claim a task t
 
 ## Installing in your agent
 
+Run `node install.js` (from this checkout) instead of doing the steps below by hand:
+
+```
+node install.js --local [dir]   # this project only, default dir = cwd
+node install.js --global        # every project, via your home config
+```
+
+Add `--agents claude,codex,opencode` to cover more than Claude Code (default is `claude` alone). It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run — it skips anything already installed and never overwrites a rules file it didn't write.
+
+The rest of this section is what it does under the hood, for anyone installing by hand or into an agent it doesn't cover.
+
 Two pieces per agent. The rules block tells the agent the board exists. The hook is the part that does not rely on the agent remembering.
 
 `hooks/stop.js` refuses to end a turn while a task **this session** claimed sits in doing with no board activity for 10 minutes. The agent gets the message and is told to add a note or move the task. Claude Code and Codex send the same JSON on stdin and both read exit 2 plus stderr as "keep going", so one script covers both. It nags at most once a minute per session and never about another session's tasks.

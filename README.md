@@ -181,7 +181,7 @@ node install.js --local [dir]   # this project only, default dir = cwd
 node install.js --global        # every project, via your home config
 ```
 
-Installs all three agents (`claude`, `codex`, `opencode`) by default. Pass `--agents claude` (or any subset) to narrow it. It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run — it skips anything already installed and never overwrites a rules file it didn't write.
+Installs all three agents (`claude`, `codex`, `opencode`) by default. Pass `--agents claude` (or any subset) to narrow it. It links the `board` CLI, drops the rules file, and wires the stop hook / session plugin. Safe to re-run: it skips hooks and plugins already installed, and replaces the board rules block with the current rules, so re-running is how a project picks up rule changes. The block sits between `<!-- agent-board rules start -->` and `<!-- agent-board rules end -->`; nothing outside those lines is touched. Rules you wrote by hand are left alone.
 
 To reverse it: `node uninstall.js --local [dir]` or `node uninstall.js --global`, same `--agents` flag. It removes exactly what `install.js` added — the rules block (deleting the file only if that block was all it contained), the stop hook entry, the OpenCode plugin symlink — and leaves everything else in those files alone: your own notes above the rules block, unrelated hooks, other env vars. The `board` CLI itself stays linked (other projects may use it); add `--unlink-cli` to remove that too.
 

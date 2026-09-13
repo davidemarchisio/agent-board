@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { findRules } = require('./install');
 const { execSync } = require('child_process');
 
 const ROOT = __dirname;
@@ -44,17 +45,16 @@ function usage() {
 }
 
 // ---- rules block (CLAUDE.md / AGENTS.md) ----
-// Removes exactly the block install.js appended. If that leaves nothing,
+// Removes the block install.js wrote, any version of it. If that leaves nothing,
 // deletes the file (it existed only because install.js created it).
 // If the block isn't found, leaves the file alone.
 function uninstallRules(file, dest) {
   if (!fs.existsSync(dest)) { console.log(`skip ${dest} (not present)`); return; }
-  const block = fs.readFileSync(path.join(ROOT, file), 'utf8');
   const existing = fs.readFileSync(dest, 'utf8');
-  const idx = existing.indexOf(block);
-  if (idx === -1) { console.log(`skip ${dest} (board rules not found, left alone)`); return; }
-  const before = existing.slice(0, idx).replace(/\n+$/, '');
-  const after = existing.slice(idx + block.length).replace(/^\n+/, '');
+  const range = findRules(existing);
+  if (!range) { console.log(`skip ${dest} (board rules not found, left alone)`); return; }
+  const before = existing.slice(0, range[0]).replace(/\n+$/, '');
+  const after = existing.slice(range[1]).replace(/^\n+/, '');
   if (!before && !after) { fs.unlinkSync(dest); console.log(`removed ${dest} (it only had the board rules)`); return; }
   fs.writeFileSync(dest, before + (before && after ? '\n\n' : '') + after + '\n');
   console.log(`removed board rules from ${dest}`);

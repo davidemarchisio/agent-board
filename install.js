@@ -13,6 +13,7 @@ const { execSync } = require('child_process');
 
 const ROOT = __dirname; // this agent-board checkout
 const RULES_MARKER = 'All work is tracked with the `board` CLI';
+const START = '<!-- agent-board rules start -->', END = '<!-- agent-board rules end -->';
 
 function parseArgs(argv) {
   const opts = { scope: null, dir: process.cwd(), agents: ['claude', 'codex', 'opencode'] };
@@ -50,14 +51,31 @@ function ensureBoardCli() {
 }
 
 // ---- rules block (CLAUDE.md / AGENTS.md) ----
-// Never overwrites: writes the file if missing, otherwise appends the block
-// (unless it's already there). Existing content in the file is untouched.
+// The block is written between START and END, so any later version can find
+// and replace or remove it exactly. Installs from before the markers hold the
+// exact v0.1.0 text, kept in hooks/rules-v0.1.0.md so they are found too.
+function findRules(text) {
+  const s = text.indexOf(START), e = text.indexOf(END, s);
+  if (s >= 0 && e >= 0) return [s, e + END.length + (text[e + END.length] === '\n' ? 1 : 0)];
+  const old = fs.readFileSync(path.join(ROOT, 'hooks', 'rules-v0.1.0.md'), 'utf8'), i = text.indexOf(old);
+  return i >= 0 ? [i, i + old.length] : null;
+}
+
+// Writes the file if missing, replaces our block if it's there, otherwise
+// appends it. Content outside the block is untouched.
 function installRules(file, dest) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const block = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  const block = START + '\n' + fs.readFileSync(path.join(ROOT, file), 'utf8') + END + '\n';
   let existing = '';
   try { existing = fs.readFileSync(dest, 'utf8'); } catch {}
-  if (existing.includes(RULES_MARKER)) { console.log(`skip ${dest} (already has the board rules)`); return; }
+  const range = findRules(existing);
+  if (range) {
+    const next = existing.slice(0, range[0]) + block + existing.slice(range[1]);
+    if (next === existing) { console.log(`skip ${dest} (board rules up to date)`); return; }
+    fs.writeFileSync(dest, next);
+    console.log(`updated board rules in ${dest}`); return;
+  }
+  if (existing.includes(RULES_MARKER)) { console.log(`skip ${dest} (has board rules install.js did not write, update by hand)`); return; }
   const sep = existing && !existing.endsWith('\n') ? '\n\n' : existing ? '\n' : '';
   fs.writeFileSync(dest, existing + sep + block);
   console.log(existing ? `appended board rules to ${dest}` : `wrote ${dest}`);
@@ -147,4 +165,5 @@ function main() {
   console.log(`\ndone (${opts.scope}${opts.scope === 'local' ? ': ' + opts.dir : ''}, agents: ${opts.agents.join(', ')})`);
 }
 
-main();
+if (require.main === module) main();
+module.exports = { findRules };

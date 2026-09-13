@@ -36,6 +36,7 @@
 <header>
   <h1>agent board</h1>
   <span id="err" class="err"></span>
+  <input id="q" type="search" placeholder="search #id or text">
   <select id="project"><option value="">all projects</option></select>
   <select id="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
   <label><input type="checkbox" id="hideDone"> hide done</label>
@@ -89,10 +90,12 @@ function render() {
   sel.innerHTML = '<option value="">all projects</option>' + projects.map(p => `<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
   try { if (!cur && localStorage.project && projects.includes(localStorage.project)) sel.value = localStorage.project; } catch {}
   const filter = sel.value, hideDone = $('#hideDone').checked, when = $('#when').value;
+  const q = $('#q').value.trim().toLowerCase(), qid = /^#?\d+$/.test(q) && +q.replace('#', '');
+  const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
   $('#board').innerHTML = STATUSES.map(s => {
     if (s === 'done' && hideDone) return '';
-    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when));
+    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t));
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
   }).join('');
@@ -158,5 +161,6 @@ async function openAdd() {
 $('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };
 $('#hideDone').onchange = render;
 $('#when').onchange = render;
+$('#q').oninput = render;
 refresh(); setInterval(refresh, 2000);
 </script>

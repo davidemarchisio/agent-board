@@ -23,6 +23,10 @@ const t2 = JSON.parse(run('show', '2', '--json'));
 assert.strictEqual(t2.status, 'blocked');
 assert.strictEqual(t2.history.at(-1).text, 'todo -> blocked: waiting on review');
 assert.match(run('show', '1'), /claude note: half done/);
+assert.throws(() => run('move', '2', 'review', '--by', 'claude'), /pr required for review/);
+assert.throws(() => run('move', '2', 'review', '--pr', 'javascript:alert(1)', '--by', 'claude'), /pr must be a PR url/);
+assert.match(run('move', '2', 'review', '--pr', 'https://github.com/o/r/pull/42', '--by', 'claude'), /pull\/42/);
+run('move', '2', 'merge', '--by', 'claude'); // pr already on the card
 
 // two sessions of the same agent get distinct owners and cannot claim each other's work.
 const runIn = (sid, ...a) => execFileSync('node', [path.join(__dirname, 'board.js'), ...a],

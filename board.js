@@ -54,6 +54,9 @@ function record(t, by, type, text) {
   t.history.push({ at: now(), by, type, text });
   t.updated_at = t.history[t.history.length - 1].at;
 }
+function checkPr(pr) { // only http(s): the board page renders it as a link
+  if (pr && !/^https?:\/\//.test(pr)) throw new Error('pr must be a PR url (https://...)');
+}
 function isReady(board, t) {
   return (t.status === 'todo') &&
     t.deps.every(d => { const x = board.tasks.find(y => y.id === d); return x && x.status === 'done'; });
@@ -69,9 +72,12 @@ const ops = {
     board.tasks.push(t);
     return t;
   },
-  move(board, by, { id, status, text = '' }) {
+  move(board, by, { id, status, text = '', pr }) {
     if (!STATUSES.includes(status)) throw new Error('status must be one of ' + STATUSES.join('|'));
     const t = find(board, id);
+    checkPr(pr);
+    if (['review', 'merge'].includes(status) && !(pr || t.pr)) throw new Error('pr required for ' + status + ': --pr <pr url>');
+    if (pr) t.pr = pr;
     record(t, by, 'status', t.status + ' -> ' + status + (text ? ': ' + text : ''));
     t.status = status;
     return t;
@@ -94,7 +100,8 @@ const ops = {
   },
   edit(board, by, { id, ...fields }) {
     const t = find(board, id);
-    const allowed = ['title', 'project', 'when', 'owner', 'branch', 'spec', 'deps'];
+    const allowed = ['title', 'project', 'when', 'owner', 'branch', 'pr', 'spec', 'deps'];
+    if (fields.pr) checkPr(fields.pr);
     if (fields.when !== undefined && !WHENS.includes(fields.when)) throw new Error('when must be one of ' + WHENS.join('|'));
     const changed = [];
     for (const k of allowed) if (fields[k] !== undefined) {
@@ -148,15 +155,15 @@ function parseArgs(argv) {
 function fmt(t) {
   const last = t.history.filter(h => h.type === 'note').pop();
   return `#${t.id} [${t.status}${t.when && t.when !== 'later' ? ' ' + t.when : ''}] ${t.title}` +
-    (t.project ? `  (${t.project})` : '') + (t.owner ? `  @${t.owner}` : '') + (t.branch ? `  ${t.branch}` : '') +
+    (t.project ? `  (${t.project})` : '') + (t.owner ? `  @${t.owner}` : '') + (t.branch ? `  ${t.branch}` : '') + (t.pr ? `  ${t.pr}` : '') +
     (t.deps.length ? `  deps:${t.deps.join(',')}` : '') + (last ? `\n    ${last.by}: ${last.text}` : '');
 }
 const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [--json]
   add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b]
   list [--status s] [--when w] [--all]   ready [--all]   show <id>
-  claim <id> [--branch b]       move <id> <status>  (${STATUSES.join('|')})
+  claim <id> [--branch b]       move <id> <status> [--pr url]  (${STATUSES.join('|')})
   done <id>  block <id> "why"   note <id> "text"
-  edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
+  edit <id> [--title t] [--when w] [--owner o] [--branch b] [--pr url] [--spec p] [--project p] [--dep id]...
   rm <id>    serve [port]       file
 identity: --by <name> or BOARD_AGENT env, required for add/claim/move/done/block/note/edit/rm,
   plus :<session> when BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
@@ -181,7 +188,7 @@ function cli(argv) {
       if (t.spec) console.log('    spec: ' + t.spec);
       t.history.forEach(h => console.log(`    ${h.at.slice(0, 16)} ${h.by} ${h.type}: ${h.text}`)); return; }
     case 'claim': return out(mutate(bd => ops.claim(bd, by, { id: a, branch: opt.branch })));
-    case 'move': return out(mutate(bd => ops.move(bd, by, { id: a, status: b })));
+    case 'move': return out(mutate(bd => ops.move(bd, by, { id: a, status: b, pr: opt.pr })));
     case 'done': return out(mutate(bd => ops.move(bd, by, { id: a, status: 'done' })));
     case 'block': return out(mutate(bd => ops.move(bd, by, { id: a, status: 'blocked', text: b })));
     case 'note': return out(mutate(bd => ops.note(bd, by, { id: a, text: b })));

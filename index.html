@@ -104,7 +104,7 @@ function render() {
     return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})" title="${isStale ? 'no update in 24h' : ''}">
       <div class="id">#${t.id} ${filter ? '' : esc(t.project)} <span class="when ${t.when || 'later'}">${t.when || 'later'}</span></div>
       <div class="title">${esc(t.title)}</div>
-      <div class="meta">${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}
+      <div class="meta">${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}${t.pr ? `<a href="${esc(t.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(t.pr.split('/').pop())}</a>` : ''}
         ${t.deps.length ? `<span>deps ${t.deps.map(d => blockedDeps.includes(d) ? `<b>#${d}</b>` : '#'+d).join(' ')}</span>` : ''}</div>
       ${last ? `<div class="note"><span class="owner">${esc(last.by)}</span> ${esc(last.text)}</div>` : ''}</div>`;
   }
@@ -126,7 +126,8 @@ async function drop(e) {
 // dialog
 function openTask(id) {
   current = board.tasks.find(t => t.id === id);
-  const f = $('#fields'); $('#f_id').textContent = '#' + id + '  [' + current.status + ']';
+  const f = $('#fields'); $('#f_id').innerHTML = '#' + id + '  [' + current.status + ']' +
+    (current.pr ? `  <a href="${esc(current.pr)}" target="_blank">PR #${esc(current.pr.split('/').pop())}</a>` : '');
   for (const k of ['title','project','owner','branch','spec']) f[k].value = current[k] || '';
   f.deps.value = current.deps.join(', ');
   f.when.value = current.when || 'later';

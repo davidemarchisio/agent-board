@@ -47,7 +47,8 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 - Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.
 - Drag a card between columns to change status. Drag within a column to reorder.
 - Click a card to edit title, project, when, owner, branch, spec, deps, and to read the history or add a note.
-- Filter by project and by when. Hide the done column.
+- Search by card number (`59` or `#59`) or by text in title, branch, owner, project or PR link. Filter by project and by when. Hide the done column.
+- A card with a PR shows a "PR #n" link, on the card and in its dialog.
 - Cards show owner, branch, unmet dependencies in bold, and the last note. A card in doing with no update for 24 hours gets an amber edge.
 - Refreshes every 2 seconds, so agent changes appear as they happen.
 
@@ -59,11 +60,11 @@ board list [--status s] [--when w] [--all]
 board ready [--all]                       todo tasks whose deps are all done
 board show <id>                           full task with history
 board claim <id> [--branch b]             owner = you, status = doing
-board move <id> todo|doing|blocked|review|merge|done
+board move <id> todo|doing|blocked|review|merge|done [--pr url]   review/merge need a PR url
 board done <id>                           same as move done
 board block <id> "why"                    move to blocked and record why
 board note <id> "text"                    append a note (handoff message)
-board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--spec p] [--project p] [--dep id]...
+board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--pr url] [--spec p] [--project p] [--dep id]...
 board rm <id>
 board serve [port]                        default 4444
 board file                                print the board path
@@ -129,7 +130,7 @@ Identify yourself on every command with `--by <your name>` (claude, opencode, co
 - Before starting a task: `board claim <id> --branch <branch>`.
 - When you stop, get blocked, or hand off: `board note <id> "what is done, what is next, where to look"`, then one of:
   - `board block <id> "why"` — you need a human's input or decision before you can keep going.
-  - `board move <id> review` — the work is done and ready for someone to review.
+  - `board move <id> review --pr <pr url>` — the work is done and ready for someone to review. Moving to review or merge fails without a PR link.
   - `board move <id> merge` — the PR is reviewed and ready to merge, and a human needs to merge it. Agents never merge PRs themselves.
   - `board done <id>` — fully finished (already merged, or no PR involved).
 - Never change priorities, titles, or other agents' tasks unless asked. Order on the board is priority.

@@ -15,7 +15,7 @@ on every write command, or its launch shell must `export BOARD_AGENT=codex` befo
 - **Before starting a task:** `board claim <id> --branch <branch>`.
 - **When you stop, get blocked, or hand off:** `board note <id> "what is done, what is next, where to look"`, then one of:
   - `board block <id> "why"` — you need a human's input or decision before you can keep going.
-  - `board move <id> review` — the work is done and ready for someone to review.
+  - `board move <id> review --pr <pr url>` — the work is done and ready for someone to review. Moving to review or merge fails without a PR link.
   - `board move <id> merge` — the PR is reviewed and ready to merge, and a human needs to merge it. Agents never merge PRs themselves.
   - `board done <id>` — fully finished (already merged, or no PR involved).
 - **Never** change priorities, titles, or other agents' tasks unless asked. Order on the board is priority.

@@ -1,6 +1,6 @@
 {
   "name": "agent-board",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "task board for agents and humans",
   "bin": { "board": "./board.js" },
   "scripts": { "test": "node test.js" },

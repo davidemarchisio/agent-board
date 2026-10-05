@@ -67,9 +67,16 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true;
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {} }, localStorage: {}, setInterval() {}, prompt: () => 'x',
-  fetch: async () => { if (!online) throw new Error('down'); return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) }; } });
+let online = true, slow = null;
+const posts = [];
+const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() {}, remove() {} } }, localStorage: {}, setInterval() {},
+  fetch: async (url, o) => {
+    if (!online) throw new Error('down');
+    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) };
+    const body = JSON.parse(o.body); posts.push([url, body]); await slow;
+    if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
+    return { ok: true, json: async () => ({ id: 7, status: 'todo' }) };
+  } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
@@ -82,8 +89,17 @@ const pageCheck = (async () => {
   err.textContent = 'old'; page.drag({ target: { closest: () => ({ dataset: { id: '1' } }) }, dataTransfer: {} });
   await page.drop({ preventDefault() {}, currentTarget: { classList: { remove() {} }, dataset: { status: 'todo' } }, target: { closest: () => null } });
   assert.strictEqual(err.textContent, '');
-  err.textContent = 'old'; await page.openAdd(); assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
+  // + task opens the dialog and posts nothing; save creates the task, then edits it under the new id
+  const f = el('#fields'), derr = el('#derr');
+  el('#project').value = 'p'; f.title.value = 'stale'; err.textContent = 'old'; posts.length = 0; page.openAdd();
+  assert.deepStrictEqual([err.textContent, posts.length, f.title.value, f.project.value, f.status.value, f.when.value], ['', 0, '', 'p', 'todo', 'later']);
+  await page.saveEdit(); assert.strictEqual(derr.textContent, 'title required');
+  f.title.value = 'new one'; f.owner.value = 'me'; f.status.value = 'doing'; posts.length = 0;
+  let release; slow = new Promise(r => release = r);
+  const first = page.saveEdit(), second = page.saveEdit(); release(); await first; await second; // double click: one task
+  assert.deepStrictEqual(posts.map(p => p[0]), ['/api/add', '/api/edit', '/api/move']);
+  assert.deepStrictEqual([posts[0][1].title, posts[0][1].project, posts[1][1].id, posts[1][1].owner, posts[2][1]], ['new one', 'p', 7, 'me', { id: 7, status: 'doing' }]);
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

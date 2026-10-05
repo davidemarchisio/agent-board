@@ -44,7 +44,7 @@
   <input id="q" type="search" placeholder="search #id or text" aria-label="search tasks">
   <select id="project" aria-label="project"><option value="">all projects</option></select>
   <select id="when" aria-label="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
-  <label><input type="checkbox" id="hideDone"> hide done</label>
+  <label><input type="checkbox" id="showDone"> show done</label>
   <button class="primary" onclick="openAdd()">+ task</button>
 </header>
 <main id="board"></main>
@@ -100,13 +100,13 @@ function render() {
   const projects = [...new Set(board.tasks.map(t => t.project).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">all projects</option>' + projects.map(p => `<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
   try { if (!cur && localStorage.project && projects.includes(localStorage.project)) sel.value = localStorage.project; } catch {}
-  const filter = sel.value, hideDone = $('#hideDone').checked, when = $('#when').value;
+  const filter = sel.value, showDone = $('#showDone').checked, when = $('#when').value;
   const q = $('#q').value.trim().toLowerCase(), qid = /^#?\d+$/.test(q) && +q.replace('#', '');
   const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
   const focused = document.activeElement?.closest('.card')?.dataset.id; // the rebuild below drops keyboard focus
   $('#board').innerHTML = STATUSES.map(s => {
-    if (s === 'done' && hideDone) return '';
+    if (s === 'done' && !showDone) return '';
     const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t));
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
@@ -187,7 +187,7 @@ function openAdd() { // the same dialog as openTask, empty: saveEdit creates the
   dlg.classList.add('new'); dlg.showModal();
 }
 $('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };
-$('#hideDone').onchange = render;
+$('#showDone').onchange = render;
 $('#when').onchange = render;
 $('#q').oninput = render;
 refresh(); setInterval(refresh, 2000);

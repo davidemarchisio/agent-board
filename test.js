@@ -90,6 +90,11 @@ const pageCheck = (async () => {
   await page.drop({ preventDefault() {}, currentTarget: { classList: { remove() {} }, dataset: { status: 'todo' } }, target: { closest: () => null } });
   assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
+  // the done column is hidden until "show done" is ticked
+  assert.match(markup, /id="showDone"> show done</);
+  assert.doesNotMatch(el('#board').innerHTML, /data-status="done"/);
+  el('#showDone').checked = true; el('#showDone').onchange();
+  assert.match(el('#board').innerHTML, /data-status="done"/);
   // + task opens the dialog and posts nothing; save creates the task, then edits it under the new id
   const f = el('#fields'), derr = el('#derr');
   el('#project').value = 'p'; f.title.value = 'stale'; err.textContent = 'old'; posts.length = 0; page.openAdd();

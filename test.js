@@ -84,6 +84,11 @@ const pageCheck = (async () => {
   assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; await page.openAdd(); assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
+  // the done column is hidden until "show done" is ticked
+  assert.match(markup, /id="showDone"> show done</);
+  assert.doesNotMatch(el('#board').innerHTML, /data-status="done"/);
+  el('#showDone').checked = true; el('#showDone').onchange();
+  assert.match(el('#board').innerHTML, /data-status="done"/);
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

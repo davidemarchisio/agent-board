@@ -67,9 +67,18 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true, refuse = false, sent;
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {} }, localStorage: {}, setInterval() {}, prompt: () => 'x',
-  fetch: async (u, o) => { if (!online) throw new Error('down'); sent = u + ' ' + o?.body; if (refuse && u === '/api/move') return { ok: false, json: async () => ({ error: 'pr required for review' }) }; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }, { id: 2, status: 'doing', title: 'u', pr: 'https://x/pull/9', deps: [], history: [] }] }) }; } });
+let online = true, slow = null, isNew = false, gets = 0;
+const posts = [];
+const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
+  fetch: async (url, o) => {
+    if (!online) throw new Error('down');
+    if (!o) { gets++; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }, { id: 2, status: 'doing', title: 'u', pr: 'https://x/pull/9', deps: [], history: [] }] }) }; }
+    const body = JSON.parse(o.body); posts.push([url, body]); await slow;
+    if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
+    if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
+    if (url === '/api/move' && body.status === 'review' && body.id === 1) return { ok: false, json: async () => ({ error: 'pr required for review' }) };
+    return { ok: true, json: async () => ({ id: 7, status: 'todo' }) };
+  } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
@@ -82,7 +91,6 @@ const pageCheck = (async () => {
   err.textContent = 'old'; page.drag({ target: { closest: () => ({ dataset: { id: '1' } }) }, dataTransfer: {} });
   await page.drop({ preventDefault() {}, currentTarget: { classList: { remove() {} }, dataset: { status: 'todo' } }, target: { closest: () => null } });
   assert.strictEqual(err.textContent, '');
-  err.textContent = 'old'; await page.openAdd(); assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
   // the done column is hidden until "show done" is ticked
   assert.match(markup, /id="showDone"> show done</);
@@ -94,10 +102,9 @@ const pageCheck = (async () => {
   assert.match(el('#board').innerHTML, /<option value="todo" selected>todo<.*<option value="review" disabled>review \(needs PR\)<.*<option value="done">done</);
   const pick = { value: 'doing' };
   assert.match(el('#board').innerHTML, /status of #2".*<option value="doing" selected>doing<.*<option value="review">review<\/option><option value="merge">merge</);
-  err.textContent = 'old'; sent = ''; const moved = page.setStatus(pick, 1);
-  assert.strictEqual(sent, '/api/move {"id":1,"status":"doing"}'); await moved;
-  assert.strictEqual(err.textContent, ''); assert.strictEqual(sent, '/api/board undefined'); // reloads after the move
-  refuse = true; pick.value = 'review'; await page.setStatus(pick, 1); refuse = false;
+  err.textContent = 'old'; posts.length = gets = 0; await page.setStatus(pick, 1);
+  assert.deepStrictEqual([posts, err.textContent, gets], [[['/api/move', { id: 1, status: 'doing' }]], '', 1]); // one move, then a reload
+  pick.value = 'review'; await page.setStatus(pick, 1);
   assert.strictEqual(err.textContent, 'pr required for review'); assert.strictEqual(pick.value, 'todo');
   // a rebuild gives focus back to the control that had it: the dropdown, else the title
   let got = ''; for (const c of ['select', '.title']) el(`.card[data-id="1"] ${c}`).focus = () => got = c;
@@ -105,6 +112,23 @@ const pageCheck = (async () => {
     page.document.activeElement = { tagName, closest: () => ({ dataset: { id: '1' } }) }; page.render(); assert.strictEqual(got, c);
   }
   page.document.activeElement = null;
+  // + task opens the dialog and posts nothing; save creates the task, then edits it under the new id
+  const f = el('#fields'), derr = el('#derr');
+  el('#project').value = 'p'; f.title.value = 'stale'; err.textContent = 'old'; posts.length = 0; page.openAdd();
+  assert.deepStrictEqual([err.textContent, posts.length, f.title.value, f.project.value, f.status.value, f.when.value], ['', 0, '', 'p', 'todo', 'later']);
+  await page.saveEdit(); assert.strictEqual(derr.textContent, 'title required');
+  f.title.value = 'new one'; f.owner.value = 'me'; f.status.value = 'doing'; posts.length = 0;
+  let release; slow = new Promise(r => release = r);
+  const first = page.saveEdit(), second = page.saveEdit(); release(); await first; await second; // double click: one task
+  assert.deepStrictEqual(posts.map(p => p[0]), ['/api/add', '/api/edit', '/api/move']);
+  assert.deepStrictEqual([posts[0][1].title, posts[0][1].project, posts[1][1].id, posts[1][1].owner, posts[2][1]], ['new one', 'p', 7, 'me', { id: 7, status: 'doing' }]);
+  // a refused edit after the create: the dialog is a normal card on the new task, and a second save does not create it again
+  el('#hist').innerHTML = 'old history'; page.openAdd(); assert.deepStrictEqual([isNew, el('#hist').innerHTML], [true, '']);
+  f.title.value = 'two'; f.pr.value = 'bad'; posts.length = 0; await page.saveEdit();
+  assert.deepStrictEqual([isNew, derr.textContent, el('#f_id').textContent], [false, 'pr must be a PR url', '#7']);
+  f.pr.value = ''; await page.saveEdit();
+  assert.deepStrictEqual([posts.map(p => p[0]), derr.textContent], [['/api/add', '/api/edit', '/api/edit'], '']);
+  page.openAdd(); page.openTask(1); assert.strictEqual(isNew, false); // opening a card leaves the "new" state
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

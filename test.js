@@ -72,7 +72,8 @@ const posts = [];
 const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
-    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) };
+    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },
+      { id: 2, status: 'blocked', title: 'b', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'status', text: 'todo -> blocked: why' }, { at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'later note' }] }] }) };
     const body = JSON.parse(o.body); posts.push([url, body]); await slow;
     if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
     if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
@@ -91,6 +92,9 @@ const pageCheck = (async () => {
   await page.drop({ preventDefault() {}, currentTarget: { classList: { remove() {} }, dataset: { status: 'todo' } }, target: { closest: () => null } });
   assert.strictEqual(err.textContent, '');
   err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
+  // the card face shows no notes, only the block reason of a blocked card
+  assert.doesNotMatch(el('#board').innerHTML, /a note|later note/);
+  assert.match(el('#board').innerHTML, /blocked: why/);
   // the done column is hidden until "show done" is ticked
   assert.match(markup, /id="showDone"> show done</);
   assert.doesNotMatch(el('#board').innerHTML, /data-status="done"/);

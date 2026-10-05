@@ -67,14 +67,15 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true, slow = null;
+let online = true, slow = null, isNew = false;
 const posts = [];
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() {}, remove() {} } }, localStorage: {}, setInterval() {},
+const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
     if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) };
     const body = JSON.parse(o.body); posts.push([url, body]); await slow;
     if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
+    if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
     return { ok: true, json: async () => ({ id: 7, status: 'todo' }) };
   } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
@@ -105,6 +106,13 @@ const pageCheck = (async () => {
   const first = page.saveEdit(), second = page.saveEdit(); release(); await first; await second; // double click: one task
   assert.deepStrictEqual(posts.map(p => p[0]), ['/api/add', '/api/edit', '/api/move']);
   assert.deepStrictEqual([posts[0][1].title, posts[0][1].project, posts[1][1].id, posts[1][1].owner, posts[2][1]], ['new one', 'p', 7, 'me', { id: 7, status: 'doing' }]);
+  // a refused edit after the create: the dialog is a normal card on the new task, and a second save does not create it again
+  el('#hist').innerHTML = 'old history'; page.openAdd(); assert.deepStrictEqual([isNew, el('#hist').innerHTML], [true, '']);
+  f.title.value = 'two'; f.pr.value = 'bad'; posts.length = 0; await page.saveEdit();
+  assert.deepStrictEqual([isNew, derr.textContent, el('#f_id').textContent], [false, 'pr must be a PR url', '#7']);
+  f.pr.value = ''; await page.saveEdit();
+  assert.deepStrictEqual([posts.map(p => p[0]), derr.textContent], [['/api/add', '/api/edit', '/api/edit'], '']);
+  page.openAdd(); page.openTask(1); assert.strictEqual(isNew, false); // opening a card leaves the "new" state
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

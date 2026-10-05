@@ -183,7 +183,7 @@ function openAdd() { // the same dialog as openTask, empty: saveEdit creates the
   current = null;
   const f = $('#fields'); for (const k of ['title','owner','branch','pr','spec','deps']) f[k].value = '';
   f.project.value = $('#project').value; f.status.value = 'todo'; f.when.value = 'later';
-  $('#f_id').textContent = 'new'; $('#noteText').value = ''; $('#derr').textContent = $('#err').textContent = '';
+  $('#f_id').textContent = 'new'; $('#hist').innerHTML = $('#noteText').value = ''; $('#derr').textContent = $('#err').textContent = '';
   dlg.classList.add('new'); dlg.showModal();
 }
 $('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };

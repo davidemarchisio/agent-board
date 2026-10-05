@@ -99,6 +99,12 @@ const pageCheck = (async () => {
   assert.strictEqual(err.textContent, ''); assert.strictEqual(sent, '/api/board undefined'); // reloads after the move
   refuse = true; pick.value = 'review'; await page.setStatus(pick, 1); refuse = false;
   assert.strictEqual(err.textContent, 'pr required for review'); assert.strictEqual(pick.value, 'todo');
+  // a rebuild gives focus back to the control that had it: the dropdown, else the title
+  let got = ''; for (const c of ['select', '.title']) el(`.card[data-id="1"] ${c}`).focus = () => got = c;
+  for (const [tagName, c] of [['SELECT', 'select'], ['BUTTON', '.title']]) {
+    page.document.activeElement = { tagName, closest: () => ({ dataset: { id: '1' } }) }; page.render(); assert.strictEqual(got, c);
+  }
+  page.document.activeElement = null;
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

@@ -36,6 +36,35 @@ assert.strictEqual(JSON.parse(runIn('aaaaaaaa11', 'claim', '3', '--by', 'claude'
 assert.throws(() => runIn('bbbbbbbb22', 'claim', '3', '--by', 'claude'), /owned by claude:aaaaaaaa/);
 assert.strictEqual(JSON.parse(run('show', '3', '--json')).history.at(-1).by, 'claude:aaaaaaaa');
 
+// index.html, static accessibility check: every control has a name, color tokens meet WCAG AA contrast.
+const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'), markup = html.split('<script>')[0];
+for (const re of [/<html lang="en">/, /<meta name="viewport"/, /id="err"[^>]*role="alert"/, /id="derr"[^>]*role="alert"/,
+  /<dialog[^>]*aria-label="/, /<select name="status"/, /<input name="pr"/, /<button class="title"/]) assert.match(html, re);
+for (const [tag] of markup.matchAll(/<(?:input|select|textarea)\b[^>]*>/g)) {
+  const id = (tag.match(/\bid="([^"]+)"/) || [])[1];
+  assert.ok(tag.includes('aria-label="') || markup.includes(`<label for="${id}">`) || markup.includes('<label>' + tag), 'no accessible name: ' + tag);
+}
+for (const [, id] of markup.matchAll(/<label for="([^"]+)"/g)) assert.ok(markup.includes(`id="${id}"`), 'label points nowhere: ' + id);
+assert.doesNotMatch(markup, /<label>[^<]/); // a label that wraps no control
+const lum = h => {
+  if (h.length === 4) h = '#' + [...h.slice(1)].map(c => c + c).join('');
+  const [r, g, b] = [1, 3, 5].map(i => { const v = parseInt(h.slice(i, i + 2), 16) / 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+  return .2126 * r + .7152 * g + .0722 * b;
+};
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+const vars = css => Object.fromEntries([...css.matchAll(/--([\w-]+):(#[0-9a-f]+)/g)].map(m => [m[1], m[2]]));
+const [lightCss, darkCss] = html.match(/:root \{[^}]*\}/g);
+const themes = { light: vars(lightCss), dark: { ...vars(lightCss), ...vars(darkCss) } };
+for (const [name, t] of Object.entries(themes)) {
+  for (const fg of ['ink', 'mute', 'acc-text', 'err']) for (const bg of ['bg', 'card'])
+    assert.ok(ratio(t[fg], t[bg]) >= 4.5, `${name} --${fg} on --${bg}: ${ratio(t[fg], t[bg]).toFixed(2)}`);
+  assert.ok(ratio(t.border, t.card) >= 3, `${name} --border on --card: ${ratio(t.border, t.card).toFixed(2)}`);
+  assert.ok(ratio('#fff', t.acc) >= 4.5, name + ' white on --acc');
+}
+const badges = [...html.matchAll(/\.when\.\w+ \{ background:(#[0-9a-f]+); color:#fff/g)];
+assert.strictEqual(badges.length, 2);
+for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge ' + bg);
+
 // 20 parallel adds must all land (lock + atomic write).
 Promise.all(Array.from({ length: 20 }, (_, i) => new Promise((res, rej) => {
   const p = spawn('node', [path.join(__dirname, 'board.js'), 'add', 'par ' + i, '--project', 'p', '--by', 'pingu'], { env });

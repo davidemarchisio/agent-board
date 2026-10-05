@@ -84,14 +84,15 @@ async function api(op, body) {
   return j;
 }
 async function refresh() {
-  let msg = '';
+  const down = 'server unreachable', err = $('#err'); let msg = '';
   try {
     board = await (await fetch('/api/board')).json();
     const j = JSON.stringify(board);
     // not while the dialog is open: a rebuild removes the card that focus returns to on close
     if (j !== shown && !dlg.open) { shown = j; render(); }
-  } catch (e) { msg = 'server unreachable'; }
-  if ($('#err').textContent !== msg) $('#err').textContent = msg; // role=alert: do not repeat it on every poll
+  } catch (e) { msg = down; }
+  // the poll owns only its own message: an action's error stays until the next action. role=alert: never rewrite the same text
+  if (msg ? err.textContent !== msg : err.textContent === down) err.textContent = msg;
 }
 function render() {
   const sel = $('#project'), cur = sel.value;
@@ -127,7 +128,7 @@ let dragId = null;
 function drag(e) { dragId = +e.target.closest('.card').dataset.id; e.dataTransfer.effectAllowed = 'move'; }
 function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('over'); }
 async function drop(e) {
-  e.preventDefault(); const col = e.currentTarget; col.classList.remove('over');
+  e.preventDefault(); const col = e.currentTarget; col.classList.remove('over'); $('#err').textContent = '';
   const t = board.tasks.find(t => t.id === dragId);
   const before = e.target.closest('.card')?.dataset.id;
   try {
@@ -145,7 +146,7 @@ function openTask(id) {
   f.deps.value = current.deps.join(', ');
   f.when.value = current.when || 'later';
   $('#hist').innerHTML = current.history.map(h => `<div>${h.at.slice(0,16).replace('T',' ')} <span class="by">${esc(h.by)}</span> ${h.type}: ${esc(h.text)}</div>`).join('');
-  $('#noteText').value = ''; $('#derr').textContent = '';
+  $('#noteText').value = ''; $('#derr').textContent = $('#err').textContent = '';
   if (!dlg.open) dlg.showModal(); // addNote reopens the task while the dialog is still open
 }
 async function saveEdit() {
@@ -172,6 +173,7 @@ async function del() {
 }
 async function openAdd() {
   const title = prompt('task title'); if (!title) return;
+  $('#err').textContent = '';
   const project = $('#project').value || prompt('project') || '';
   try { await api('add', { title, project }); refresh(); } catch (e) { $('#err').textContent = e.message; }
 }

@@ -65,11 +65,26 @@ const badges = [...html.matchAll(/\.when\.\w+ \{ background:(#[0-9a-f]+); color:
 assert.strictEqual(badges.length, 2);
 for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge ' + bg);
 
+// index.html script on a stub DOM: the poll clears only its own message, never an action's error.
+const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
+let online = true;
+const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false }, localStorage: {}, setInterval() {},
+  fetch: async () => { if (!online) throw new Error('down'); return { json: async () => ({ tasks: [] }) }; } });
+vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
+const pageCheck = (async () => {
+  const err = el('#err');
+  err.textContent = 'pr required for review'; await page.refresh();
+  assert.strictEqual(err.textContent, 'pr required for review');
+  online = false; await page.refresh(); assert.strictEqual(err.textContent, 'server unreachable');
+  online = true; await page.refresh(); assert.strictEqual(err.textContent, '');
+})();
+
 // 20 parallel adds must all land (lock + atomic write).
 Promise.all(Array.from({ length: 20 }, (_, i) => new Promise((res, rej) => {
   const p = spawn('node', [path.join(__dirname, 'board.js'), 'add', 'par ' + i, '--project', 'p', '--by', 'pingu'], { env });
   p.on('exit', c => c === 0 ? res() : rej(new Error('exit ' + c)));
-}))).then(() => {
+}))).then(async () => {
+  await pageCheck;
   const b = JSON.parse(fs.readFileSync(env.BOARD_FILE, 'utf8'));
   assert.strictEqual(b.tasks.length, 23);
   assert.strictEqual(new Set(b.tasks.map(t => t.id)).size, 23);

@@ -45,7 +45,7 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 `board serve [port]` runs a tiny local server on 127.0.0.1 and serves the board.
 
 - Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.
-- Drag a card between columns to change status. Drag within a column to reorder.
+- Drag a card between columns to change status, or pick it from the dropdown on the card. Review and merge need a PR link first. Drag within a column to reorder.
 - Click a card to edit title, project, when, owner, branch, spec, deps, and to read the history or add a note.
 - Search by card number (`59` or `#59`) or by text in title, branch, owner, project or PR link. Filter by project and by when. The done column is hidden until you tick "show done".
 - A card with a PR shows a "PR #n" link, on the card and in its dialog.

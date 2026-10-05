@@ -20,7 +20,8 @@
   .col.over { outline:2px dashed var(--acc); }
   .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:grab; }
   .card.stale { border-left:3px solid #d97706; }
-  .card .id { color:var(--mute); font-size:12px; }
+  .card .id { color:var(--mute); font-size:12px; display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+  .card .id select { margin-left:auto; padding:0 2px; }
   .card .title { font-weight:600; margin:2px 0; display:block; width:100%; text-align:left; background:none; border:0; padding:0; cursor:pointer; }
   .card .meta { color:var(--mute); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
   .card .note { font-size:12px; margin-top:4px; border-top:1px solid var(--line); padding-top:4px; }
@@ -104,20 +105,22 @@ function render() {
   const q = $('#q').value.trim().toLowerCase(), qid = /^#?\d+$/.test(q) && +q.replace('#', '');
   const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
-  const focused = document.activeElement?.closest('.card')?.dataset.id; // the rebuild below drops keyboard focus
+  const active = document.activeElement, focused = active?.closest('.card')?.dataset.id; // the rebuild below drops keyboard focus
   $('#board').innerHTML = STATUSES.map(s => {
     if (s === 'done' && !showDone) return '';
     const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t));
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
   }).join('');
-  if (focused) $(`.card[data-id="${focused}"] .title`)?.focus();
+  if (focused) $(`.card[data-id="${focused}"] ${active.tagName === 'SELECT' ? 'select' : '.title'}`)?.focus();
   function card(t) {
     const last = t.history.filter(h => h.type === 'note' || (h.type === 'status' && t.status === 'blocked')).pop();
     const dep = d => { const x = board.tasks.find(y => y.id === d); return x?.status === 'done' ? '#' + d : `#${d} (${x ? x.status : 'missing'})`; };
     const isStale = t.status === 'doing' && new Date(t.updated_at) < stale;
     return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})">
-      <div class="id">#${t.id} ${filter ? '' : esc(t.project)} <span class="when ${t.when || 'later'}">${t.when || 'later'}</span></div>
+      <div class="id">#${t.id} ${filter ? '' : esc(t.project)} <span class="when ${t.when || 'later'}">${t.when || 'later'}</span>
+        <select aria-label="status of #${t.id}" onclick="event.stopPropagation()" onchange="setStatus(this, ${t.id})">${STATUSES.map(s =>
+          `<option value="${s}"${s === t.status ? ' selected' : needsPr(s) && !t.pr ? ' disabled' : ''}>${s}${needsPr(s) && !t.pr ? ' (needs PR)' : ''}</option>`).join('')}</select></div>
       <button class="title">${esc(t.title)}</button>
       <div class="meta">${isStale ? '<span>no update in 24h</span>' : ''}${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}${t.pr ? `<a href="${esc(t.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(t.pr.split('/').pop())}</a>` : ''}
         ${t.deps.length ? `<span>deps ${t.deps.map(dep).join(' ')}</span>` : ''}</div>
@@ -136,6 +139,14 @@ async function drop(e) {
     if (t.status !== col.dataset.status) await api('move', { id: dragId, status: col.dataset.status });
     if (before && +before !== dragId) await api('reorder', { id: dragId, before: +before });
   } catch (err) { $('#err').textContent = err.message; }
+  refresh();
+}
+// status dropdown on the card. The server refuses review and merge without a pr, so those options are disabled until the card has one
+const needsPr = s => s === 'review' || s === 'merge';
+async function setStatus(sel, id) {
+  $('#err').textContent = '';
+  try { await api('move', { id, status: sel.value }); }
+  catch (e) { $('#err').textContent = e.message; sel.value = board.tasks.find(t => t.id === id).status; } // a refused move changes nothing, so no rebuild resets it
   refresh();
 }
 // dialog

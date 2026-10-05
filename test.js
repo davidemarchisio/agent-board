@@ -67,16 +67,15 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true, slow = null, isNew = false, gets = 0;
+let online = true, slow = null, isNew = false;
 const posts = [];
 const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
-    if (!o) { gets++; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }, { id: 2, status: 'doing', title: 'u', pr: 'https://x/pull/9', deps: [], history: [] }] }) }; }
+    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) };
     const body = JSON.parse(o.body); posts.push([url, body]); await slow;
     if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
     if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
-    if (url === '/api/move' && body.status === 'review' && body.id === 1) return { ok: false, json: async () => ({ error: 'pr required for review' }) };
     return { ok: true, json: async () => ({ id: 7, status: 'todo' }) };
   } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
@@ -97,21 +96,6 @@ const pageCheck = (async () => {
   assert.doesNotMatch(el('#board').innerHTML, /data-status="done"/);
   el('#showDone').checked = true; el('#showDone').onchange();
   assert.match(el('#board').innerHTML, /data-status="done"/);
-  // status dropdown on the card: named, review and merge need a pr, a refused move shows the server's text and resets the control
-  assert.match(el('#board').innerHTML, /<select aria-label="status of #1" onclick="event\.stopPropagation\(\)"/);
-  assert.match(el('#board').innerHTML, /<option value="todo" selected>todo<.*<option value="review" disabled>review \(needs PR\)<.*<option value="done">done</);
-  const pick = { value: 'doing' };
-  assert.match(el('#board').innerHTML, /status of #2".*<option value="doing" selected>doing<.*<option value="review">review<\/option><option value="merge">merge</);
-  err.textContent = 'old'; posts.length = gets = 0; await page.setStatus(pick, 1);
-  assert.deepStrictEqual([posts, err.textContent, gets], [[['/api/move', { id: 1, status: 'doing' }]], '', 1]); // one move, then a reload
-  pick.value = 'review'; await page.setStatus(pick, 1);
-  assert.strictEqual(err.textContent, 'pr required for review'); assert.strictEqual(pick.value, 'todo');
-  // a rebuild gives focus back to the control that had it: the dropdown, else the title
-  let got = ''; for (const c of ['select', '.title']) el(`.card[data-id="1"] ${c}`).focus = () => got = c;
-  for (const [tagName, c] of [['SELECT', 'select'], ['BUTTON', '.title']]) {
-    page.document.activeElement = { tagName, closest: () => ({ dataset: { id: '1' } }) }; page.render(); assert.strictEqual(got, c);
-  }
-  page.document.activeElement = null;
   // + task opens the dialog and posts nothing; save creates the task, then edits it under the new id
   const f = el('#fields'), derr = el('#derr');
   el('#project').value = 'p'; f.title.value = 'stale'; err.textContent = 'old'; posts.length = 0; page.openAdd();

@@ -67,9 +67,9 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true;
+let online = true, refuse = false;
 const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {} }, localStorage: {}, setInterval() {}, prompt: () => 'x',
-  fetch: async () => { if (!online) throw new Error('down'); return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) }; } });
+  fetch: async u => { if (!online) throw new Error('down'); if (refuse && u === '/api/move') return { ok: false, json: async () => ({ error: 'pr required for review' }) }; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) }; } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
@@ -89,6 +89,13 @@ const pageCheck = (async () => {
   assert.doesNotMatch(el('#board').innerHTML, /data-status="done"/);
   el('#showDone').checked = true; el('#showDone').onchange();
   assert.match(el('#board').innerHTML, /data-status="done"/);
+  // status dropdown on the card: named, review and merge need a pr, a refused move shows the server's text and resets the control
+  assert.match(el('#board').innerHTML, /<select aria-label="status of #1" onclick="event\.stopPropagation\(\)"/);
+  assert.match(el('#board').innerHTML, /<option value="todo" selected>todo<.*<option value="review" disabled>review \(needs PR\)<.*<option value="done">done</);
+  const pick = { value: 'doing' };
+  err.textContent = 'old'; await page.setStatus(pick, 1); assert.strictEqual(err.textContent, '');
+  refuse = true; pick.value = 'review'; await page.setStatus(pick, 1); refuse = false;
+  assert.strictEqual(err.textContent, 'pr required for review'); assert.strictEqual(pick.value, 'todo');
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

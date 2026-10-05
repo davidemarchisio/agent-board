@@ -68,8 +68,9 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
 let online = true;
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false }, localStorage: {}, setInterval() {},
-  fetch: async () => { if (!online) throw new Error('down'); return { json: async () => ({ tasks: [] }) }; } });
+const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {} }, localStorage: {}, setInterval() {}, prompt: () => 'x',
+  fetch: async () => { if (!online) throw new Error('down'); return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) }; } });
+for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
   const err = el('#err');
@@ -77,6 +78,12 @@ const pageCheck = (async () => {
   assert.strictEqual(err.textContent, 'pr required for review');
   online = false; await page.refresh(); assert.strictEqual(err.textContent, 'server unreachable');
   online = true; await page.refresh(); assert.strictEqual(err.textContent, '');
+  // each action clears the previous error itself
+  err.textContent = 'old'; page.drag({ target: { closest: () => ({ dataset: { id: '1' } }) }, dataTransfer: {} });
+  await page.drop({ preventDefault() {}, currentTarget: { classList: { remove() {} }, dataset: { status: 'todo' } }, target: { closest: () => null } });
+  assert.strictEqual(err.textContent, '');
+  err.textContent = 'old'; await page.openAdd(); assert.strictEqual(err.textContent, '');
+  err.textContent = 'old'; page.openTask(1); assert.strictEqual(err.textContent, '');
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

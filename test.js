@@ -67,9 +67,9 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 
 // index.html script on a stub DOM: the poll clears only its own message, never an action's error.
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
-let online = true, refuse = false;
+let online = true, refuse = false, sent;
 const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {} }, localStorage: {}, setInterval() {}, prompt: () => 'x',
-  fetch: async u => { if (!online) throw new Error('down'); if (refuse && u === '/api/move') return { ok: false, json: async () => ({ error: 'pr required for review' }) }; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }] }) }; } });
+  fetch: async (u, o) => { if (!online) throw new Error('down'); sent = u + ' ' + o?.body; if (refuse && u === '/api/move') return { ok: false, json: async () => ({ error: 'pr required for review' }) }; return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [] }, { id: 2, status: 'doing', title: 'u', pr: 'https://x/pull/9', deps: [], history: [] }] }) }; } });
 for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
@@ -93,7 +93,10 @@ const pageCheck = (async () => {
   assert.match(el('#board').innerHTML, /<select aria-label="status of #1" onclick="event\.stopPropagation\(\)"/);
   assert.match(el('#board').innerHTML, /<option value="todo" selected>todo<.*<option value="review" disabled>review \(needs PR\)<.*<option value="done">done</);
   const pick = { value: 'doing' };
-  err.textContent = 'old'; await page.setStatus(pick, 1); assert.strictEqual(err.textContent, '');
+  assert.match(el('#board').innerHTML, /status of #2".*<option value="doing" selected>doing<.*<option value="review">review<\/option><option value="merge">merge</);
+  err.textContent = 'old'; sent = ''; const moved = page.setStatus(pick, 1);
+  assert.strictEqual(sent, '/api/move {"id":1,"status":"doing"}'); await moved;
+  assert.strictEqual(err.textContent, ''); assert.strictEqual(sent, '/api/board undefined'); // reloads after the move
   refuse = true; pick.value = 'review'; await page.setStatus(pick, 1); refuse = false;
   assert.strictEqual(err.textContent, 'pr required for review'); assert.strictEqual(pick.value, 'todo');
 })();

@@ -47,7 +47,7 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 - Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.
 - Drag a card between columns to change status. Drag within a column to reorder.
 - Click a card to edit title, project, when, owner, branch, spec, deps, and to read the history or add a note.
-- Search by card number (`59` or `#59`) or by text in title, branch, owner, project or PR link. Filter by project and by when. Hide the done column.
+- Search by card number (`59` or `#59`) or by text in title, branch, owner, project or PR link. Filter by project and by when. The done column is hidden until you tick "show done".
 - A card with a PR shows a "PR #n" link, on the card and in its dialog.
 - Cards show owner, branch, unmet dependencies in bold, and the last note. A card in doing with no update for 24 hours gets an amber edge.
 - Refreshes every 2 seconds, so agent changes appear as they happen.

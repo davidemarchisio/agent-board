@@ -1,73 +1,79 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agent board</title>
 <style>
-  :root { --bg:#f5f5f4; --card:#fff; --ink:#1c1917; --mute:#78716c; --line:#e7e5e4; --acc:#2563eb; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --card:#292524; --ink:#f5f5f4; --mute:#a8a29e; --line:#44403c; } }
+  :root { --bg:#f5f5f4; --card:#fff; --ink:#1c1917; --mute:#57534e; --line:#e7e5e4; --border:#8a8580; --acc:#2563eb; --acc-text:#2563eb; --err:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --card:#292524; --ink:#f5f5f4; --mute:#a8a29e; --line:#44403c; --border:#78716c; --acc-text:#60a5fa; --err:#f87171; } }
   * { box-sizing: border-box; }
   body { margin:0; font: 14px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); }
   header h1 { font-size:16px; margin:0 auto 0 0; }
-  select, input, textarea, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
+  select, input, textarea, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; }
+  @media (pointer: coarse) { select, input:not([type=checkbox]), textarea, button { min-height:44px; } }
+  a { color:var(--acc-text); }
   button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
-  main { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; padding:12px; min-height:calc(100vh - 50px); }
+  main { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; padding:12px; min-height:calc(100vh - 50px); }
   .col { background:rgba(127,127,127,.08); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; }
   .col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:2px 4px 4px; }
   .col.over { outline:2px dashed var(--acc); }
   .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:grab; }
   .card.stale { border-left:3px solid #d97706; }
   .card .id { color:var(--mute); font-size:12px; }
-  .card .title { font-weight:600; margin:2px 0; }
+  .card .title { font-weight:600; margin:2px 0; display:block; width:100%; text-align:left; background:none; border:0; padding:0; cursor:pointer; }
   .card .meta { color:var(--mute); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
   .card .note { font-size:12px; margin-top:4px; border-top:1px solid var(--line); padding-top:4px; }
-  .owner { color:var(--acc); }
+  .owner { color:var(--acc-text); }
   .when { font-size:11px; padding:0 5px; border-radius:4px; background:rgba(127,127,127,.15); }
-  .when.now { background:#dc2626; color:#fff; } .when.next { background:#d97706; color:#fff; }
+  .when.now { background:#dc2626; color:#fff; } .when.next { background:#b45309; color:#fff; }
   dialog { border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); width:min(680px,95vw); padding:16px; }
   dialog::backdrop { background:rgba(0,0,0,.4); }
   dialog form.fields { display:grid; grid-template-columns:90px 1fr; gap:6px 10px; align-items:center; }
   dialog .hist { max-height:220px; overflow:auto; font-size:12px; margin:12px 0; border:1px solid var(--line); border-radius:6px; padding:6px; }
   dialog .hist div { padding:2px 0; }
-  dialog .hist .by { color:var(--acc); }
+  dialog .hist .by { color:var(--acc-text); }
   dialog .row { display:flex; gap:8px; margin-top:8px; }
   dialog .row textarea { flex:1; }
-  .err { color:#dc2626; }
+  .err { color:var(--err); }
 </style>
 <header>
   <h1>agent board</h1>
-  <span id="err" class="err"></span>
-  <input id="q" type="search" placeholder="search #id or text">
-  <select id="project"><option value="">all projects</option></select>
-  <select id="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
+  <span id="err" class="err" role="alert"></span>
+  <input id="q" type="search" placeholder="search #id or text" aria-label="search tasks">
+  <select id="project" aria-label="project"><option value="">all projects</option></select>
+  <select id="when" aria-label="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
   <label><input type="checkbox" id="hideDone"> hide done</label>
   <button class="primary" onclick="openAdd()">+ task</button>
 </header>
 <main id="board"></main>
 
-<dialog id="dlg">
+<dialog id="dlg" aria-label="edit task">
   <form class="fields" id="fields" onsubmit="return false">
-    <label>id</label><span id="f_id"></span>
-    <label>title</label><input name="title">
-    <label>project</label><input name="project">
-    <label>when</label><select name="when"><option>now</option><option>next</option><option>later</option></select>
-    <label>owner</label><input name="owner">
-    <label>branch</label><input name="branch">
-    <label>spec</label><input name="spec">
-    <label>deps</label><input name="deps" placeholder="ids, comma separated">
+    <span>id</span><span id="f_id"></span>
+    <label for="f_title">title</label><input name="title" id="f_title">
+    <label for="f_project">project</label><input name="project" id="f_project">
+    <label for="f_status">status</label><select name="status" id="f_status"><option>todo</option><option>doing</option><option>blocked</option><option>review</option><option>merge</option><option>done</option></select>
+    <label for="f_when">when</label><select name="when" id="f_when"><option>now</option><option>next</option><option>later</option></select>
+    <label for="f_owner">owner</label><input name="owner" id="f_owner">
+    <label for="f_branch">branch</label><input name="branch" id="f_branch">
+    <label for="f_pr">pr</label><input name="pr" id="f_pr" placeholder="PR url, needed for review and merge">
+    <label for="f_spec">spec</label><input name="spec" id="f_spec">
+    <label for="f_deps">deps</label><input name="deps" id="f_deps" placeholder="ids, comma separated">
   </form>
   <div class="hist" id="hist"></div>
-  <div class="row"><textarea id="noteText" rows="2" placeholder="add a note / handoff"></textarea><button onclick="addNote()">note</button></div>
+  <div class="row"><textarea id="noteText" rows="2" aria-label="note" placeholder="add a note / handoff"></textarea><button onclick="addNote()">note</button></div>
   <div class="row">
     <button class="primary" onclick="saveEdit()">save</button>
     <button onclick="dlg.close()">close</button>
-    <span style="flex:1"></span>
+    <span id="derr" class="err" role="alert" style="flex:1"></span>
     <button onclick="del()">delete</button>
   </div>
 </dialog>
 
 <script>
 const STATUSES = ['todo','doing','blocked','review','merge','done'];
-let board = { tasks: [] }, current = null;
+let board = { tasks: [] }, shown = '', current = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -78,11 +84,14 @@ async function api(op, body) {
   return j;
 }
 async function refresh() {
+  let msg = '';
   try {
-    const r = await fetch('/api/board'); const b = await r.json();
-    if (JSON.stringify(b) !== JSON.stringify(board)) { board = b; render(); }
-    $('#err').textContent = '';
-  } catch (e) { $('#err').textContent = 'server unreachable'; }
+    board = await (await fetch('/api/board')).json();
+    const j = JSON.stringify(board);
+    // not while the dialog is open: a rebuild removes the card that focus returns to on close
+    if (j !== shown && !dlg.open) { shown = j; render(); }
+  } catch (e) { msg = 'server unreachable'; }
+  if ($('#err').textContent !== msg) $('#err').textContent = msg; // role=alert: do not repeat it on every poll
 }
 function render() {
   const sel = $('#project'), cur = sel.value;
@@ -93,22 +102,23 @@ function render() {
   const q = $('#q').value.trim().toLowerCase(), qid = /^#?\d+$/.test(q) && +q.replace('#', '');
   const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
+  const focused = document.activeElement?.closest('.card')?.dataset.id; // the rebuild below drops keyboard focus
   $('#board').innerHTML = STATUSES.map(s => {
     if (s === 'done' && hideDone) return '';
     const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t));
     return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
       <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
   }).join('');
-  $('#board').style.gridTemplateColumns = `repeat(${hideDone ? 5 : 6},1fr)`;
+  if (focused) $(`.card[data-id="${focused}"] .title`)?.focus();
   function card(t) {
     const last = t.history.filter(h => h.type === 'note' || (h.type === 'status' && t.status === 'blocked')).pop();
-    const blockedDeps = t.deps.filter(d => { const x = board.tasks.find(y => y.id === d); return !x || x.status !== 'done'; });
+    const dep = d => { const x = board.tasks.find(y => y.id === d); return x?.status === 'done' ? '#' + d : `#${d} (${x ? x.status : 'missing'})`; };
     const isStale = t.status === 'doing' && new Date(t.updated_at) < stale;
-    return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})" title="${isStale ? 'no update in 24h' : ''}">
+    return `<div class="card ${isStale ? 'stale' : ''}" draggable="true" data-id="${t.id}" ondragstart="drag(event)" onclick="openTask(${t.id})">
       <div class="id">#${t.id} ${filter ? '' : esc(t.project)} <span class="when ${t.when || 'later'}">${t.when || 'later'}</span></div>
-      <div class="title">${esc(t.title)}</div>
-      <div class="meta">${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}${t.pr ? `<a href="${esc(t.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(t.pr.split('/').pop())}</a>` : ''}
-        ${t.deps.length ? `<span>deps ${t.deps.map(d => blockedDeps.includes(d) ? `<b>#${d}</b>` : '#'+d).join(' ')}</span>` : ''}</div>
+      <button class="title">${esc(t.title)}</button>
+      <div class="meta">${isStale ? '<span>no update in 24h</span>' : ''}${t.owner ? `<span class="owner">@${esc(t.owner)}</span>` : ''}${t.branch ? `<span>${esc(t.branch)}</span>` : ''}${t.pr ? `<a href="${esc(t.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(t.pr.split('/').pop())}</a>` : ''}
+        ${t.deps.length ? `<span>deps ${t.deps.map(dep).join(' ')}</span>` : ''}</div>
       ${last ? `<div class="note"><span class="owner">${esc(last.by)}</span> ${esc(last.text)}</div>` : ''}</div>`;
   }
 }
@@ -131,27 +141,34 @@ function openTask(id) {
   current = board.tasks.find(t => t.id === id);
   const f = $('#fields'); $('#f_id').innerHTML = '#' + id + '  [' + current.status + ']' +
     (current.pr ? `  <a href="${esc(current.pr)}" target="_blank">PR #${esc(current.pr.split('/').pop())}</a>` : '');
-  for (const k of ['title','project','owner','branch','spec']) f[k].value = current[k] || '';
+  for (const k of ['title','project','status','owner','branch','pr','spec']) f[k].value = current[k] || '';
   f.deps.value = current.deps.join(', ');
   f.when.value = current.when || 'later';
   $('#hist').innerHTML = current.history.map(h => `<div>${h.at.slice(0,16).replace('T',' ')} <span class="by">${esc(h.by)}</span> ${h.type}: ${esc(h.text)}</div>`).join('');
-  $('#noteText').value = '';
-  dlg.showModal();
+  $('#noteText').value = ''; $('#derr').textContent = '';
+  if (!dlg.open) dlg.showModal(); // addNote reopens the task while the dialog is still open
 }
 async function saveEdit() {
   const f = $('#fields');
   const deps = f.deps.value.split(/[ ,]+/).filter(Boolean).map(Number);
-  try { await api('edit', { id: current.id, title: f.title.value, project: f.project.value, when: f.when.value, owner: f.owner.value, branch: f.branch.value, spec: f.spec.value, deps }); dlg.close(); refresh(); }
-  catch (e) { $('#err').textContent = e.message; }
+  const edit = { id: current.id, title: f.title.value, project: f.project.value, when: f.when.value, owner: f.owner.value, branch: f.branch.value, spec: f.spec.value, deps };
+  if (f.pr.value !== (current.pr || '')) edit.pr = f.pr.value;
+  try { // edit first: a refused move (review without a pr) must not lose the field edits
+    await api('edit', edit);
+    if (f.status.value !== current.status) await api('move', { id: current.id, status: f.status.value });
+    dlg.close();
+  } catch (e) { $('#derr').textContent = e.message; }
+  refresh();
 }
 async function addNote() {
   const text = $('#noteText').value.trim(); if (!text) return;
   try { await api('note', { id: current.id, text }); await refresh(); openTask(current.id); }
-  catch (e) { $('#err').textContent = e.message; }
+  catch (e) { $('#derr').textContent = e.message; }
 }
 async function del() {
   if (!confirm('delete #' + current.id + '?')) return;
-  await api('del', { id: current.id }); dlg.close(); refresh();
+  try { await api('del', { id: current.id }); dlg.close(); refresh(); }
+  catch (e) { $('#derr').textContent = e.message; }
 }
 async function openAdd() {
   const title = prompt('task title'); if (!title) return;

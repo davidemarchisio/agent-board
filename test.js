@@ -69,7 +69,7 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
 let online = true, slow = null, isNew = false;
 const posts = [];
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
+const page = vm.createContext({ document: { querySelector: el, querySelectorAll: () => [], activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
     if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },

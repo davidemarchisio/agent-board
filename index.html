@@ -18,12 +18,28 @@
   .col { background:rgba(127,127,127,.08); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; }
   .col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:2px 4px 4px; }
   .col.over { outline:2px dashed var(--acc); }
-  /* phone: one row of columns swiped sideways, each column scrolls its own cards */
+  nav, .empty { display:none; }
+  .empty { margin:4px; color:var(--mute); }
+  /* phone: one column per screen, swiped sideways. the tab strip names every column and its count, and jumps to it */
   @media (max-width: 700px) {
     body { height:100dvh; display:flex; flex-direction:column; }
+    header { gap:8px; padding:8px 12px; border-bottom:0; }
+    header h1 { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+    header > * { order:2; }
+    #q { order:0; flex:1 1 60%; min-width:0; }
+    header button { order:1; }
+    #project, #when { flex:1 1 30%; min-width:0; }
+    #err:not(:empty) { flex-basis:100%; }
+    nav, main { scrollbar-width:none; }
+    nav { display:flex; overflow-x:auto; padding:0 4px; border-bottom:1px solid var(--line); }
+    nav button { flex:1 0 auto; min-height:44px; padding:5px 4px; background:none; border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--mute); }
+    nav button[aria-current] { color:var(--ink); border-bottom-color:var(--ink); }
+    nav .n { font-size:12px; margin-left:2px; font-variant-numeric:tabular-nums; }
     main { flex:1; min-height:0; display:flex; align-items:flex-start; overflow-x:auto; scroll-snap-type:x mandatory; scroll-padding:0 12px; }
-    .col { flex:0 0 85%; max-height:100%; overflow-y:auto; scroll-snap-align:start; }
-    .card { flex-shrink:0; }
+    .col { flex:0 0 100%; max-height:100%; overflow-y:auto; scroll-snap-align:start; }
+    .col h2 { display:none; }
+    .empty { display:block; }
+    .card { flex-shrink:0; overflow-wrap:anywhere; }
   }
   .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:grab; }
   .card.stale { border-left:3px solid #d97706; }
@@ -54,6 +70,7 @@
   <label><input type="checkbox" id="showDone"> show done</label>
   <button class="primary" onclick="openAdd()">+ task</button>
 </header>
+<nav id="tabs" aria-label="columns"></nav>
 <main id="board"></main>
 
 <dialog id="dlg" aria-label="task">
@@ -112,12 +129,17 @@ function render() {
   const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
   const focused = document.activeElement?.closest('.card')?.dataset.id; // the rebuild below drops keyboard focus
-  $('#board').innerHTML = STATUSES.map(s => {
-    if (s === 'done' && !showDone) return '';
-    const ts = board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t));
-    return `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
-      <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('')}</div>`;
-  }).join('');
+  const tab = document.activeElement?.closest('#tabs button')?.dataset.status;
+  const tops = Object.fromEntries([...document.querySelectorAll('.col')].map(c => [c.dataset.status, c.scrollTop])); // phone: columns scroll on their own
+  const cols = STATUSES.filter(s => s !== 'done' || showDone).map(s =>
+    [s, board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t))]);
+  $('#tabs').innerHTML = cols.map(([s, ts]) =>
+    `<button data-status="${s}" onclick="showCol('${s}')">${s} <span class="n ${s === 'blocked' && ts.length ? 'err' : ''}">${ts.length}</span></button>`).join('');
+  $('#board').innerHTML = cols.map(([s, ts]) =>
+    `<div class="col" data-status="${s}" ondragover="dragOver(event)" ondragleave="this.classList.remove('over')" ondrop="drop(event)">
+      <h2>${s} <span style="float:right">${ts.length}</span></h2>${ts.map(card).join('') || `<p class="empty">No tasks in ${s}.</p>`}</div>`).join('');
+  for (const c of document.querySelectorAll('.col')) c.scrollTop = tops[c.dataset.status] || 0;
+  markTab(); if (tab) $(`#tabs [data-status="${tab}"]`)?.focus();
   if (focused) $(`.card[data-id="${focused}"] .title`)?.focus();
   function card(t) {
     const last = t.status === 'blocked' && t.history.filter(h => h.type === 'status').pop();
@@ -131,6 +153,16 @@ function render() {
       ${last ? `<div class="note"><span class="owner">${esc(last.by)}</span> ${esc(last.text)}</div>` : ''}</div>`;
   }
 }
+// phone tabs: the column at the left edge of the board is the current one
+function showCol(s) { $(`.col[data-status="${s}"]`).scrollIntoView({ inline:'start', block:'nearest' }); }
+function markTab() {
+  const m = $('#board'), off = c => Math.abs(c.offsetLeft - m.scrollLeft), cur = [...document.querySelectorAll('.col')].sort((a, b) => off(a) - off(b))[0];
+  for (const b of document.querySelectorAll('#tabs button')) {
+    if (b.dataset.status !== cur?.dataset.status) b.removeAttribute('aria-current');
+    else if (!b.hasAttribute('aria-current')) { b.setAttribute('aria-current', 'true'); b.scrollIntoView({ inline:'nearest', block:'nearest' }); }
+  }
+}
+$('#board').onscroll = markTab;
 // drag & drop
 let dragId = null;
 function drag(e) { dragId = +e.target.closest('.card').dataset.id; e.dataTransfer.effectAllowed = 'move'; }

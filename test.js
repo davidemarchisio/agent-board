@@ -69,7 +69,7 @@ for (const [, bg] of badges) assert.ok(ratio('#fff', bg) >= 4.5, 'white on badge
 const vm = require('vm'), els = {}, el = s => els[s] ??= { value: '', textContent: '', innerHTML: '' };
 let online = true, slow = null, isNew = false;
 const posts = [];
-const page = vm.createContext({ document: { querySelector: el, activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
+const page = vm.createContext({ document: { querySelector: el, querySelectorAll: () => [], activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
     if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },
@@ -85,6 +85,11 @@ const pageCheck = (async () => {
   const err = el('#err');
   err.textContent = 'pr required for review'; await page.refresh();
   assert.strictEqual(err.textContent, 'pr required for review');
+  // phone tab strip: one tab per shown column with its count, blocked count flagged, empty columns say so
+  assert.match(el('#tabs').innerHTML, /data-status="todo"[^>]*>todo <span class="n ">1</);
+  assert.match(el('#tabs').innerHTML, /data-status="blocked"[^>]*>blocked <span class="n err">1</);
+  assert.doesNotMatch(el('#tabs').innerHTML, /data-status="done"/);
+  assert.match(el('#board').innerHTML, /No tasks in review\./);
   online = false; await page.refresh(); assert.strictEqual(err.textContent, 'server unreachable');
   online = true; await page.refresh(); assert.strictEqual(err.textContent, '');
   // each action clears the previous error itself

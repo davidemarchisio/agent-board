@@ -85,6 +85,11 @@ const pageCheck = (async () => {
   const err = el('#err');
   err.textContent = 'pr required for review'; await page.refresh();
   assert.strictEqual(err.textContent, 'pr required for review');
+  // phone tab strip: one tab per shown column with its count, blocked count flagged, empty columns say so
+  assert.match(el('#tabs').innerHTML, /data-status="todo"[^>]*>todo <span class="n ">1</);
+  assert.match(el('#tabs').innerHTML, /data-status="blocked"[^>]*>blocked <span class="n err">1</);
+  assert.doesNotMatch(el('#tabs').innerHTML, /data-status="done"/);
+  assert.match(el('#board').innerHTML, /No tasks in review\./);
   online = false; await page.refresh(); assert.strictEqual(err.textContent, 'server unreachable');
   online = true; await page.refresh(); assert.strictEqual(err.textContent, '');
   // each action clears the previous error itself

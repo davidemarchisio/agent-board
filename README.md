@@ -65,6 +65,7 @@ board done <id>                           same as move done
 board block <id> "why"                    move to blocked and record why
 board note <id> "text"                    append a note (handoff message)
 board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--initiative name] [--pr url] [--spec p] [--project p] [--dep id]...
+board reorder <id> [--before id]          move in front of card id, or to the end; order is priority
 board rm <id>
 board serve [port]                        default 4444
 board file                                print the board path
@@ -74,7 +75,7 @@ board file                                print the board path
 
 Flags that work on every command:
 
-- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment. Agents pass `--by claude`, `--by opencode`, and so on. Required (via `--by` or `BOARD_AGENT`) on every command that writes to the board — `add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`. Read-only commands (`list`, `ready`, `show`) fall back to your OS username when neither is set. The name you pass isn't necessarily the name that lands in `owner`/`by` — see [Who owns a task](#who-owns-a-task): when a session id is available the CLI appends it, so `--by claude` shows up as `claude:a1b2c3d4`.
+- `--by <name>` says who is acting. Default is `BOARD_AGENT` from the environment. Agents pass `--by claude`, `--by opencode`, and so on. Required (via `--by` or `BOARD_AGENT`) on every command that writes to the board — `add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `reorder`, `rm`. Read-only commands (`list`, `ready`, `show`) fall back to your OS username when neither is set. The name you pass isn't necessarily the name that lands in `owner`/`by` — see [Who owns a task](#who-owns-a-task): when a session id is available the CLI appends it, so `--by claude` shows up as `claude:a1b2c3d4`.
 - `--project <name>` overrides the project. Default is the name of the git root of the current directory, or the current directory name. `list` and `ready` show only the current project unless `--all`.
 - `--json` prints raw JSON instead of the one-line format.
 
@@ -143,7 +144,7 @@ Identify yourself on every command with `--by <your name>` (claude, opencode, co
 
 Telling agents "identify yourself with `--by`" in a rules block is a request, not a guarantee — an agent can just forget, and nothing stops it. Early on, tasks were showing up owned by `pingu` (the OS user running the agent) instead of `claude`, because a command ran without `--by` and without `BOARD_AGENT` set. `who()` used to fall back silently to `os.userInfo().username`, so the mistake never surfaced.
 
-`board.js` now refuses to guess. Any write command (`add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `rm`) run with neither `--by` nor `BOARD_AGENT` set exits 1:
+`board.js` now refuses to guess. Any write command (`add`, `claim`, `move`, `done`, `block`, `note`, `edit`, `reorder`, `rm`) run with neither `--by` nor `BOARD_AGENT` set exits 1:
 
 ```
 error: no identity: pass --by <name> or set BOARD_AGENT (e.g. --by claude)

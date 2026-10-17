@@ -60,6 +60,10 @@ assert.throws(() => run('reorder', '7', '--before', '99', '--by', 'pingu'), /no 
 assert.throws(() => run('reorder', '7', '--before', '--by', 'pingu'), /before needs a card id/);
 run('reorder', '7', '--before', '7', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');
 
+// install.js finds pre-marker installs by this exact text, so the file must never change.
+assert.strictEqual(require('crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname, 'hooks', 'rules-v0.1.0.md'))).digest('hex'),
+  'aae7697b0ff39500549dcd5107f48d1d2615d620abac048204254e7ee9e14bb0');
+
 // index.html, static accessibility check: every control has a name, color tokens meet WCAG AA contrast.
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'), markup = html.split('<script>')[0];
 for (const re of [/<html lang="en">/, /<meta name="viewport"/, /id="err"[^>]*role="alert"/, /id="derr"[^>]*role="alert"/,

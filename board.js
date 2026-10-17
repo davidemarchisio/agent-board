@@ -180,6 +180,7 @@ function cli(argv) {
   const project = opt.project || projectHere();
   const out = t => console.log(opt.json ? JSON.stringify(t, null, 2) : fmt(t));
   const list = (pred) => {
+    checkInitiative(opt.initiative);
     const ts = load().tasks.filter(t => (opt.all || t.project === project) && (!opt.when || (t.when || 'later') === opt.when) &&
       (!opt.initiative || (t.initiative || '') === opt.initiative) && pred(t));
     if (opt.json) return console.log(JSON.stringify(ts, null, 2));

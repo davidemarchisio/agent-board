@@ -41,6 +41,7 @@ run('add', 'tagged', '--project', 'p', '--initiative', 'alpha', '--by', 'pingu')
 assert.match(run('list', '--all', '--initiative', 'alpha'), /#4 .*initiative:alpha/); assert.doesNotMatch(run('list', '--all', '--initiative', 'alpha'), /#1/);
 assert.throws(() => run('edit', '4', '--initiative', '--by', 'pingu'), /initiative needs a name/);
 assert.throws(() => run('add', 'bare', '--project', 'p', '--initiative', '--by', 'pingu'), /initiative needs a name/);
+assert.throws(() => run('list', '--all', '--initiative'), /initiative needs a name/);
 run('edit', '4', '--initiative', 'beta', '--by', 'pingu');
 assert.strictEqual(JSON.parse(run('show', '4', '--json')).history.at(-1).text, 'initiative="beta"');
 run('edit', '4', '--initiative', '', '--by', 'pingu');
@@ -149,6 +150,8 @@ const pageCheck = (async () => {
   page.openTask(2); posts.length = 0; await page.saveEdit(); assert.ok(!('initiative' in posts[0][1])); // an old card gets no initiative="" history line
   page.openTask(1); f.initiative.value = 'beta'; posts.length = 0; await page.saveEdit(); assert.strictEqual(posts[0][1].initiative, 'beta');
   page.openAdd(); assert.strictEqual(f.initiative.value, '');
+  f.title.value = 'grouped'; f.initiative.value = 'alpha'; posts.length = 0; await page.saveEdit(); // a new card: the edit after the add carries it
+  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1].initiative], [['/api/add', '/api/edit'], 'alpha']);
   el('#project').value = ''; el('#q').value = 'alpha'; page.render(); assert.match(el('#board').innerHTML, /data-id="1"[\s\S]*<span>alpha<\/span>/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
   el('#q').value = ''; page.render();
 })();

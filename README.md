@@ -46,29 +46,31 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 
 - Six columns: todo, doing, blocked, review, merge, done. `blocked` means an agent is waiting on a human answer or decision. `merge` means the PR is reviewed and ready — agents don't merge themselves, so a card sitting in `merge` is waiting on a human to click merge.
 - Drag a card between columns to change status. Drag within a column to reorder.
-- Click a card to edit title, project, when, owner, branch, spec, deps, and to read the history or add a note.
-- Search by card number (`59` or `#59`) or by text in title, branch, owner, project or PR link. Filter by project and by when. The done column is hidden until you tick "show done".
+- Click a card to edit title, project, when, owner, branch, initiative, spec, deps, and to read the history or add a note.
+- Search by card number (`59` or `#59`) or by text in title, branch, initiative, owner, project or PR link. Typing an initiative name lists every card of that feature or plan. Filter by project and by when. The done column is hidden until you tick "show done".
 - A card with a PR shows a "PR #n" link, on the card and in its dialog.
-- Cards show owner, branch, unmet dependencies in bold, and the last note. A card in doing with no update for 24 hours gets an amber edge.
+- Cards show owner, branch, initiative, unmet dependencies in bold, and the last note. A card in doing with no update for 24 hours gets an amber edge.
 - Refreshes every 2 seconds, so agent changes appear as they happen.
 
 ## The CLI
 
 ```
-board add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b]
-board list [--status s] [--when w] [--all]
-board ready [--all]                       todo tasks whose deps are all done
+board add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b] [--initiative name]
+board list [--status s] [--when w] [--initiative name] [--all]
+board ready [--initiative name] [--all]   todo tasks whose deps are all done
 board show <id>                           full task with history
 board claim <id> [--branch b]             owner = you, status = doing
 board move <id> todo|doing|blocked|review|merge|done [--pr url]   review/merge need a PR url
 board done <id>                           same as move done
 board block <id> "why"                    move to blocked and record why
 board note <id> "text"                    append a note (handoff message)
-board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--pr url] [--spec p] [--project p] [--dep id]...
+board edit <id> [--title t] [--when w] [--owner o] [--branch b] [--initiative name] [--pr url] [--spec p] [--project p] [--dep id]...
 board rm <id>
 board serve [port]                        default 4444
 board file                                print the board path
 ```
+
+`--initiative <name>` groups the cards of one feature, plan or chunk of work. Set it on `add` or `edit` (`--initiative ""` clears it), filter `list` and `ready` by it. Free text, exact match.
 
 Flags that work on every command:
 
@@ -90,6 +92,7 @@ Flags that work on every command:
       "when": "now",
       "owner": "claude:a1b2c3d4",
       "branch": "feat/spec",
+      "initiative": "board v1",
       "spec": "docs/spec.md",
       "deps": [],
       "created_at": "2026-09-07T20:49:17.138Z",

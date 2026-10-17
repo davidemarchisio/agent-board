@@ -36,6 +36,18 @@ assert.strictEqual(JSON.parse(runIn('aaaaaaaa11', 'claim', '3', '--by', 'claude'
 assert.throws(() => runIn('bbbbbbbb22', 'claim', '3', '--by', 'claude'), /owned by claude:aaaaaaaa/);
 assert.strictEqual(JSON.parse(run('show', '3', '--json')).history.at(-1).by, 'claude:aaaaaaaa');
 
+// initiative: set on add, filtered by list, changed and cleared by edit, never stored without a name.
+run('add', 'tagged', '--project', 'p', '--initiative', 'alpha', '--by', 'pingu');
+assert.match(run('list', '--all', '--initiative', 'alpha'), /#4 .*initiative:alpha/); assert.doesNotMatch(run('list', '--all', '--initiative', 'alpha'), /#1/);
+assert.throws(() => run('edit', '4', '--initiative', '--by', 'pingu'), /initiative needs a name/);
+assert.throws(() => run('add', 'bare', '--project', 'p', '--initiative', '--by', 'pingu'), /initiative needs a name/);
+assert.throws(() => run('list', '--all', '--initiative'), /initiative needs a name/);
+assert.match(run('ready', '--all', '--initiative', 'alpha'), /#4 /); assert.doesNotMatch(run('ready', '--all', '--initiative', 'alpha'), /#3 /);
+run('edit', '4', '--initiative', 'beta', '--by', 'pingu');
+assert.strictEqual(JSON.parse(run('show', '4', '--json')).history.at(-1).text, 'initiative="beta"');
+run('edit', '4', '--initiative', '', '--by', 'pingu');
+assert.strictEqual(JSON.parse(run('show', '4', '--json')).initiative, '');
+
 // index.html, static accessibility check: every control has a name, color tokens meet WCAG AA contrast.
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'), markup = html.split('<script>')[0];
 for (const re of [/<html lang="en">/, /<meta name="viewport"/, /id="err"[^>]*role="alert"/, /id="derr"[^>]*role="alert"/,
@@ -72,14 +84,14 @@ const posts = [];
 const page = vm.createContext({ document: { querySelector: el, querySelectorAll: () => [], activeElement: null }, dlg: { open: false, showModal() {}, close() {}, classList: { add() { isNew = true; }, remove() { isNew = false; } } }, localStorage: {}, setInterval() {},
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
-    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },
+    if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', initiative: 'alpha', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },
       { id: 2, status: 'blocked', title: 'b', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'status', text: 'todo -> blocked: why' }, { at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'later note' }] }] }) };
     const body = JSON.parse(o.body); posts.push([url, body]); await slow;
     if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
     if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
     return { ok: true, json: async () => ({ id: 7, status: 'todo' }) };
   } });
-for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
+for (const k of ['title', 'project', 'status', 'when', 'owner', 'branch', 'initiative', 'pr', 'spec', 'deps']) el('#fields')[k] = { value: '' };
 vm.runInContext(html.split('<script>')[1].split('</script>')[0], page);
 const pageCheck = (async () => {
   const err = el('#err');
@@ -133,6 +145,16 @@ const pageCheck = (async () => {
   assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1]], [['/api/edit', '/api/note'], { id: 1, text: 'on save' }]);
   page.openTask(1); assert.strictEqual(el('#noteText').value, ''); page.openAdd(); assert.strictEqual(el('#noteText').value, ''); // no note carries to the next task
   page.openTask(1); el('#noteText').value = '  '; posts.length = 0; await page.saveEdit(); assert.deepStrictEqual(posts.map(p => p[0]), ['/api/edit']);
+  // initiative: the dialog fills it, clears it, and sends it only when changed; the card and the search show it
+  page.openTask(1); assert.strictEqual(f.initiative.value, 'alpha');
+  posts.length = 0; await page.saveEdit(); assert.ok(!('initiative' in posts[0][1]));
+  page.openTask(2); posts.length = 0; await page.saveEdit(); assert.ok(!('initiative' in posts[0][1])); // an old card gets no initiative="" history line
+  page.openTask(1); f.initiative.value = 'beta'; posts.length = 0; await page.saveEdit(); assert.strictEqual(posts[0][1].initiative, 'beta');
+  page.openAdd(); assert.strictEqual(f.initiative.value, '');
+  f.title.value = 'grouped'; f.initiative.value = 'alpha'; posts.length = 0; await page.saveEdit(); // a new card: the edit after the add carries it
+  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1].initiative], [['/api/add', '/api/edit'], 'alpha']);
+  el('#project').value = ''; el('#q').value = 'alpha'; page.render(); assert.match(el('#board').innerHTML, /data-id="1"[\s\S]*<span>alpha<\/span>/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
+  el('#q').value = ''; page.render();
 })();
 
 // 20 parallel adds must all land (lock + atomic write).
@@ -142,8 +164,8 @@ Promise.all(Array.from({ length: 20 }, (_, i) => new Promise((res, rej) => {
 }))).then(async () => {
   await pageCheck;
   const b = JSON.parse(fs.readFileSync(env.BOARD_FILE, 'utf8'));
-  assert.strictEqual(b.tasks.length, 23);
-  assert.strictEqual(new Set(b.tasks.map(t => t.id)).size, 23);
+  assert.strictEqual(b.tasks.length, 24);
+  assert.strictEqual(new Set(b.tasks.map(t => t.id)).size, 24);
   assert.ok(!fs.existsSync(env.BOARD_FILE + '.lock'));
   fs.rmSync(dir, { recursive: true });
   console.log('ok');

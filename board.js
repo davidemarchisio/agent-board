@@ -57,16 +57,20 @@ function record(t, by, type, text) {
 function checkPr(pr) { // only http(s): the board page renders it as a link
   if (pr && !/^https?:\/\//.test(pr)) throw new Error('pr must be a PR url (https://...)');
 }
+function checkInitiative(v) { // a bare --initiative parses as true
+  if (v !== undefined && typeof v !== 'string') throw new Error('initiative needs a name: --initiative <name>');
+}
 function isReady(board, t) {
   return (t.status === 'todo') &&
     t.deps.every(d => { const x = board.tasks.find(y => y.id === d); return x && x.status === 'done'; });
 }
 
 const ops = {
-  add(board, by, { title, project, spec = '', deps = [], branch = '', when = 'later' }) {
+  add(board, by, { title, project, spec = '', deps = [], branch = '', when = 'later', initiative = '' }) {
     if (!title) throw new Error('title required');
+    checkInitiative(initiative);
     if (!WHENS.includes(when)) throw new Error('when must be one of ' + WHENS.join('|'));
-    const t = { id: board.next_id++, title, project, status: 'todo', when, owner: '', branch, spec,
+    const t = { id: board.next_id++, title, project, status: 'todo', when, owner: '', branch, initiative, spec,
       deps: deps.map(Number), created_at: now(), updated_at: '', history: [] };
     record(t, by, 'create', title);
     board.tasks.push(t);
@@ -100,8 +104,9 @@ const ops = {
   },
   edit(board, by, { id, ...fields }) {
     const t = find(board, id);
-    const allowed = ['title', 'project', 'when', 'owner', 'branch', 'pr', 'spec', 'deps'];
+    const allowed = ['title', 'project', 'when', 'owner', 'branch', 'initiative', 'pr', 'spec', 'deps'];
     if (fields.pr) checkPr(fields.pr);
+    checkInitiative(fields.initiative);
     if (fields.when !== undefined && !WHENS.includes(fields.when)) throw new Error('when must be one of ' + WHENS.join('|'));
     const changed = [];
     for (const k of allowed) if (fields[k] !== undefined) {
@@ -155,15 +160,15 @@ function parseArgs(argv) {
 function fmt(t) {
   const last = t.history.filter(h => h.type === 'note').pop();
   return `#${t.id} [${t.status}${t.when && t.when !== 'later' ? ' ' + t.when : ''}] ${t.title}` +
-    (t.project ? `  (${t.project})` : '') + (t.owner ? `  @${t.owner}` : '') + (t.branch ? `  ${t.branch}` : '') + (t.pr ? `  ${t.pr}` : '') +
+    (t.project ? `  (${t.project})` : '') + (t.owner ? `  @${t.owner}` : '') + (t.branch ? `  ${t.branch}` : '') + (t.initiative ? `  initiative:${t.initiative}` : '') + (t.pr ? `  ${t.pr}` : '') +
     (t.deps.length ? `  deps:${t.deps.join(',')}` : '') + (last ? `\n    ${last.by}: ${last.text}` : '');
 }
 const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [--json]
-  add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b]
-  list [--status s] [--when w] [--all]   ready [--all]   show <id>
+  add "title" [--when now|next|later] [--spec path] [--dep id]... [--branch b] [--initiative name]
+  list [--status s] [--when w] [--initiative name] [--all]   ready [--initiative name] [--all]   show <id>
   claim <id> [--branch b]       move <id> <status> [--pr url]  (${STATUSES.join('|')})
   done <id>  block <id> "why"   note <id> "text"
-  edit <id> [--title t] [--when w] [--owner o] [--branch b] [--pr url] [--spec p] [--project p] [--dep id]...
+  edit <id> [--title t] [--when w] [--owner o] [--branch b] [--initiative name] [--pr url] [--spec p] [--project p] [--dep id]...
   rm <id>    serve [port]       file
 identity: --by <name> or BOARD_AGENT env, required for add/claim/move/done/block/note/edit/rm,
   plus :<session> when BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
@@ -175,13 +180,14 @@ function cli(argv) {
   const project = opt.project || projectHere();
   const out = t => console.log(opt.json ? JSON.stringify(t, null, 2) : fmt(t));
   const list = (pred) => {
-    const ts = load().tasks.filter(t => (opt.all || t.project === project) && (!opt.when || (t.when || 'later') === opt.when) && pred(t));
+    const ts = load().tasks.filter(t => (opt.all || t.project === project) && (!opt.when || (t.when || 'later') === opt.when) &&
+      (!opt.initiative || (t.initiative || '') === opt.initiative) && pred(t));
     if (opt.json) return console.log(JSON.stringify(ts, null, 2));
     if (!ts.length) return console.log('(none)');
     ts.forEach(t => console.log(fmt(t)));
   };
   switch (cmd) {
-    case 'add': return out(mutate(bd => ops.add(bd, by, { title: a, project, spec: opt.spec, deps: opt.deps, branch: opt.branch, when: opt.when })));
+    case 'add': return out(mutate(bd => ops.add(bd, by, { title: a, project, spec: opt.spec, deps: opt.deps, branch: opt.branch, when: opt.when, initiative: opt.initiative })));
     case 'list': return list(t => !opt.status || t.status === opt.status);
     case 'ready': { const bd = load(); return list(t => isReady(bd, t)); }
     case 'show': { const t = find(load(), a); if (opt.json) return out(t); console.log(fmt(t));

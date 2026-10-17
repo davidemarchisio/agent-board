@@ -131,6 +131,8 @@ const pageCheck = (async () => {
   // an existing task: save posts a typed note too, no add
   page.openTask(1); f.status.value = 'todo'; el('#noteText').value = 'on save'; posts.length = 0; await page.saveEdit();
   assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1]], [['/api/edit', '/api/note'], { id: 1, text: 'on save' }]);
+  page.openTask(1); assert.strictEqual(el('#noteText').value, ''); page.openAdd(); assert.strictEqual(el('#noteText').value, ''); // no note carries to the next task
+  page.openTask(1); el('#noteText').value = '  '; posts.length = 0; await page.saveEdit(); assert.deepStrictEqual(posts.map(p => p[0]), ['/api/edit']);
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

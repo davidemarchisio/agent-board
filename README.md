@@ -275,6 +275,7 @@ index.html    the page
 hooks/stop.js                    stop hook for Claude Code and Codex
 hooks/codex-hooks.json           Codex hooks.json to copy
 hooks/opencode-board-session.js  OpenCode plugin: session id -> BOARD_SESSION
+hooks/rules-v0.1.0.md            the first rules text, frozen: install.js finds old installs by it
 test.js       the check
 AGENTS.md     rules block for agents
 CLAUDE.md     same block, for Claude-only setups

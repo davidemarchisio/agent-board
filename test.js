@@ -54,6 +54,8 @@ const order = () => JSON.parse(run('list', '--project', 'r', '--json')).map(t =>
 assert.throws(() => run('reorder', '7', '--before', '5'), /no identity/);
 run('reorder', '7', '--before', '5', '--by', 'pingu'); assert.strictEqual(order(), '7,5,6');
 run('reorder', '7', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');
+run('reorder', '5', '--before', '7', '--by', 'pingu'); assert.strictEqual(order(), '6,5,7');
+run('reorder', '5', '--before', '6', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');
 assert.throws(() => run('reorder', '7', '--before', '99', '--by', 'pingu'), /no task #99/);
 assert.throws(() => run('reorder', '7', '--before', '--by', 'pingu'), /before needs a card id/);
 run('reorder', '7', '--before', '7', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');

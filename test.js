@@ -122,6 +122,11 @@ const pageCheck = (async () => {
   f.pr.value = ''; await page.saveEdit();
   assert.deepStrictEqual([posts.map(p => p[0]), derr.textContent], [['/api/add', '/api/edit', '/api/edit'], '']);
   page.openAdd(); page.openTask(1); assert.strictEqual(isNew, false); // opening a card leaves the "new" state
+  // a new task takes a note before the first save: save posts it once, a retry after a refused edit does not post it again
+  assert.match(markup, /<div class="row"><textarea id="noteText"[^>]*><\/textarea><button class="existing" onclick="addNote\(\)">/);
+  page.openAdd(); f.title.value = 'with note'; f.pr.value = 'bad'; el('#noteText').value = ' first note '; posts.length = 0; await page.saveEdit();
+  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1], el('#noteText').value], [['/api/add', '/api/note', '/api/edit'], { id: 7, text: 'first note' }, '']);
+  f.pr.value = ''; posts.length = 0; await page.saveEdit(); assert.deepStrictEqual(posts.map(p => p[0]), ['/api/edit']);
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

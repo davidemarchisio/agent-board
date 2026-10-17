@@ -125,8 +125,12 @@ const pageCheck = (async () => {
   // a new task takes a note before the first save: save posts it once, a retry after a refused edit does not post it again
   assert.match(markup, /<div class="row"><textarea id="noteText"[^>]*><\/textarea><button class="existing" onclick="addNote\(\)">/);
   page.openAdd(); f.title.value = 'with note'; f.pr.value = 'bad'; el('#noteText').value = ' first note '; posts.length = 0; await page.saveEdit();
-  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1], el('#noteText').value], [['/api/add', '/api/note', '/api/edit'], { id: 7, text: 'first note' }, '']);
-  f.pr.value = ''; posts.length = 0; await page.saveEdit(); assert.deepStrictEqual(posts.map(p => p[0]), ['/api/edit']);
+  assert.deepStrictEqual([posts.map(p => p[0]), el('#noteText').value], [['/api/add', '/api/edit'], ' first note ']); // refused edit: no note yet
+  f.pr.value = ''; posts.length = 0; await page.saveEdit();
+  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1]], [['/api/edit', '/api/note'], { id: 7, text: 'first note' }]);
+  // an existing task: save posts a typed note too, no add
+  page.openTask(1); f.status.value = 'todo'; el('#noteText').value = 'on save'; posts.length = 0; await page.saveEdit();
+  assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1]], [['/api/edit', '/api/note'], { id: 1, text: 'on save' }]);
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

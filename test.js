@@ -42,6 +42,7 @@ assert.match(run('list', '--all', '--initiative', 'alpha'), /#4 .*initiative:alp
 assert.throws(() => run('edit', '4', '--initiative', '--by', 'pingu'), /initiative needs a name/);
 assert.throws(() => run('add', 'bare', '--project', 'p', '--initiative', '--by', 'pingu'), /initiative needs a name/);
 assert.throws(() => run('list', '--all', '--initiative'), /initiative needs a name/);
+assert.match(run('ready', '--all', '--initiative', 'alpha'), /#4 /); assert.doesNotMatch(run('ready', '--all', '--initiative', 'alpha'), /#3 /);
 run('edit', '4', '--initiative', 'beta', '--by', 'pingu');
 assert.strictEqual(JSON.parse(run('show', '4', '--json')).history.at(-1).text, 'initiative="beta"');
 run('edit', '4', '--initiative', '', '--by', 'pingu');

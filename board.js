@@ -122,15 +122,18 @@ const ops = {
     return board.tasks.splice(i, 1)[0];
   },
   reorder(board, by, { id, before }) { // move task `id` in front of task `before` (or to end)
+    if (before !== undefined && !/^\d+$/.test(before)) throw new Error('before needs a card id');
+    if (before !== undefined) find(board, before);
+    if (Number(before) === Number(id)) return find(board, id);
     const t = ops.del(board, by, { id });
-    const i = before ? board.tasks.findIndex(x => x.id === Number(before)) : -1;
-    if (i < 0) board.tasks.push(t); else board.tasks.splice(i, 0, t);
+    if (before === undefined) board.tasks.push(t);
+    else board.tasks.splice(board.tasks.findIndex(x => x.id === Number(before)), 0, t);
     return t;
   },
 };
 
 // ---------- CLI ----------
-const MUTATING = ['add', 'claim', 'move', 'done', 'block', 'note', 'edit', 'rm'];
+const MUTATING = ['add', 'claim', 'move', 'done', 'block', 'note', 'edit', 'reorder', 'rm'];
 function who(required) {
   if (process.env.BOARD_AGENT) return process.env.BOARD_AGENT;
   if (required) throw new Error('no identity: pass --by <name> or set BOARD_AGENT (e.g. --by claude)');
@@ -169,8 +172,9 @@ const HELP = `usage: board <cmd> [args] [--by agent] [--project name] [--all] [-
   claim <id> [--branch b]       move <id> <status> [--pr url]  (${STATUSES.join('|')})
   done <id>  block <id> "why"   note <id> "text"
   edit <id> [--title t] [--when w] [--owner o] [--branch b] [--initiative name] [--pr url] [--spec p] [--project p] [--dep id]...
+  reorder <id> [--before id]    (no --before: to the end)
   rm <id>    serve [port]       file
-identity: --by <name> or BOARD_AGENT env, required for add/claim/move/done/block/note/edit/rm,
+identity: --by <name> or BOARD_AGENT env, required for add/claim/move/done/block/note/edit/reorder/rm,
   plus :<session> when BOARD_SESSION or CLAUDE_CODE_SESSION_ID is set. project: --project or git root name.`;
 
 function cli(argv) {
@@ -200,6 +204,7 @@ function cli(argv) {
     case 'block': return out(mutate(bd => ops.move(bd, by, { id: a, status: 'blocked', text: b })));
     case 'note': return out(mutate(bd => ops.note(bd, by, { id: a, text: b })));
     case 'edit': return out(mutate(bd => ops.edit(bd, by, { id: a, ...opt })));
+    case 'reorder': return out(mutate(bd => ops.reorder(bd, by, { id: a, before: opt.before })));
     case 'rm': return out(mutate(bd => ops.del(bd, by, { id: a })));
     case 'serve': return serve(Number(a) || 4444);
     case 'file': return console.log(FILE);

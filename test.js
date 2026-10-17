@@ -48,6 +48,16 @@ assert.strictEqual(JSON.parse(run('show', '4', '--json')).history.at(-1).text, '
 run('edit', '4', '--initiative', '', '--by', 'pingu');
 assert.strictEqual(JSON.parse(run('show', '4', '--json')).initiative, '');
 
+// reorder: board order is priority; a card moves in front of another or to the end, a bad target changes nothing.
+['r1', 'r2', 'r3'].forEach(t => run('add', t, '--project', 'r', '--by', 'pingu'));
+const order = () => JSON.parse(run('list', '--project', 'r', '--json')).map(t => t.id).join();
+assert.throws(() => run('reorder', '7', '--before', '5'), /no identity/);
+run('reorder', '7', '--before', '5', '--by', 'pingu'); assert.strictEqual(order(), '7,5,6');
+run('reorder', '7', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');
+assert.throws(() => run('reorder', '7', '--before', '99', '--by', 'pingu'), /no task #99/);
+assert.throws(() => run('reorder', '7', '--before', '--by', 'pingu'), /before needs a card id/);
+run('reorder', '7', '--before', '7', '--by', 'pingu'); assert.strictEqual(order(), '5,6,7');
+
 // index.html, static accessibility check: every control has a name, color tokens meet WCAG AA contrast.
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'), markup = html.split('<script>')[0];
 for (const re of [/<html lang="en">/, /<meta name="viewport"/, /id="err"[^>]*role="alert"/, /id="derr"[^>]*role="alert"/,
@@ -164,8 +174,8 @@ Promise.all(Array.from({ length: 20 }, (_, i) => new Promise((res, rej) => {
 }))).then(async () => {
   await pageCheck;
   const b = JSON.parse(fs.readFileSync(env.BOARD_FILE, 'utf8'));
-  assert.strictEqual(b.tasks.length, 24);
-  assert.strictEqual(new Set(b.tasks.map(t => t.id)).size, 24);
+  assert.strictEqual(b.tasks.length, 27);
+  assert.strictEqual(new Set(b.tasks.map(t => t.id)).size, 27);
   assert.ok(!fs.existsSync(env.BOARD_FILE + '.lock'));
   fs.rmSync(dir, { recursive: true });
   console.log('ok');

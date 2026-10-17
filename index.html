@@ -87,7 +87,7 @@
     <label for="f_deps">deps</label><input name="deps" id="f_deps" placeholder="ids, comma separated">
   </form>
   <div class="hist" id="hist"></div>
-  <div class="row existing"><textarea id="noteText" rows="2" aria-label="note" placeholder="add a note / handoff"></textarea><button onclick="addNote()">note</button></div>
+  <div class="row"><textarea id="noteText" rows="2" aria-label="note" placeholder="add a note / handoff"></textarea><button class="existing" onclick="addNote()">note</button></div>
   <div class="row">
     <button class="primary" onclick="saveEdit()">save</button>
     <button onclick="dlg.close()">close</button>
@@ -203,6 +203,9 @@ async function saveEdit() {
     if (f.pr.value !== (current.pr || '')) edit.pr = f.pr.value;
     await api('edit', edit);
     if (f.status.value !== current.status) await api('move', { id: current.id, status: f.status.value });
+    // a typed note goes last: a refused edit or move posts no note, and the text stays for the retry
+    const note = $('#noteText').value.trim();
+    if (note) await api('note', { id: current.id, text: note });
     dlg.close();
   } catch (e) { $('#derr').textContent = e.message; }
   saving = false;

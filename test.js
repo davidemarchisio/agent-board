@@ -101,7 +101,8 @@ const page = vm.createContext({ document: { querySelector: el, querySelectorAll:
   fetch: async (url, o) => {
     if (!online) throw new Error('down');
     if (!o) return { ok: true, json: async () => ({ tasks: [{ id: 1, status: 'todo', title: 't', initiative: 'alpha', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'a note' }] },
-      { id: 2, status: 'blocked', title: 'b', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'status', text: 'todo -> blocked: why' }, { at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'later note' }] }] }) };
+      { id: 2, status: 'blocked', title: 'b', project: 'p', deps: [], history: [{ at: '2026-01-01T00:00:00', by: 'a', type: 'status', text: 'todo -> blocked: why' }, { at: '2026-01-01T00:00:00', by: 'a', type: 'note', text: 'later note' }] },
+      { id: 3, status: 'done', title: 'c', project: 'p', initiative: 'gamma', deps: [], history: [] }] }) };
     const body = JSON.parse(o.body); posts.push([url, body]); await slow;
     if (url === '/api/add' && !body.title) return { ok: false, json: async () => ({ error: 'title required' }) };
     if (body.pr === 'bad') return { ok: false, json: async () => ({ error: 'pr must be a PR url' }) };
@@ -172,9 +173,10 @@ const pageCheck = (async () => {
   el('#project').value = ''; el('#q').value = 'alpha'; page.render(); assert.match(el('#board').innerHTML, /data-id="1"[\s\S]*<span>alpha<\/span>/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
   el('#q').value = ''; page.render();
   // initiative filter: lists the shown project's initiatives, shows only that initiative's cards, an initiative gone from the project means all
-  el('#initiative').value = 'alpha'; page.render(); assert.match(el('#initiative').innerHTML, /<option selected>alpha</);
-  assert.match(el('#board').innerHTML, /data-id="1"/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
-  el('#project').value = 'p'; page.render(); assert.doesNotMatch(el('#initiative').innerHTML, /alpha/);
+  el('#initiative').value = 'alpha'; el('#initiative').onchange(); assert.match(el('#initiative').innerHTML, /<option selected>alpha</);
+  assert.match(el('#board').innerHTML, /data-id="1"/); assert.doesNotMatch(el('#board').innerHTML, /data-id="[23]"/);
+  el('#project').value = 'p'; page.render(); assert.match(el('#initiative').innerHTML, /<option >gamma</); assert.doesNotMatch(el('#initiative').innerHTML, /alpha/);
+  assert.match(el('#board').innerHTML, /data-id="2"[\s\S]*data-id="3"/); // alpha is not in p: the filter falls back to all
   el('#project').value = ''; el('#initiative').value = ''; page.render();
 })();
 

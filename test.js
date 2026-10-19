@@ -171,6 +171,11 @@ const pageCheck = (async () => {
   assert.deepStrictEqual([posts.map(p => p[0]), posts[1][1].initiative], [['/api/add', '/api/edit'], 'alpha']);
   el('#project').value = ''; el('#q').value = 'alpha'; page.render(); assert.match(el('#board').innerHTML, /data-id="1"[\s\S]*<span>alpha<\/span>/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
   el('#q').value = ''; page.render();
+  // initiative filter: lists the shown project's initiatives, shows only that initiative's cards, an initiative gone from the project means all
+  el('#initiative').value = 'alpha'; page.render(); assert.match(el('#initiative').innerHTML, /<option selected>alpha</);
+  assert.match(el('#board').innerHTML, /data-id="1"/); assert.doesNotMatch(el('#board').innerHTML, /data-id="2"/);
+  el('#project').value = 'p'; page.render(); assert.doesNotMatch(el('#initiative').innerHTML, /alpha/);
+  el('#project').value = ''; el('#initiative').value = ''; page.render();
 })();
 
 // 20 parallel adds must all land (lock + atomic write).

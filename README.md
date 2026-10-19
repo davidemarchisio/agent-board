@@ -48,7 +48,7 @@ That gets you the CLI. To wire the board into an actual agent — rules file, en
 - Drag a card between columns to change status. Drag within a column to reorder.
 - Click a card to edit title, project, when, owner, branch, initiative, spec, deps, and to read the history or add a note.
 - A new task can take a note before its first save. The note is posted after the task is created, so a refused save writes no note.
-- Search by card number (`59` or `#59`) or by text in title, branch, initiative, owner, project or PR link. Typing an initiative name lists every card of that feature or plan. Filter by project and by when. The done column is hidden until you tick "show done".
+- Search by card number (`59` or `#59`) or by text in title, branch, initiative, owner, project or PR link. Typing an initiative name lists every card of that feature or plan. Filter by project, initiative and when. The initiative list shows only the selected project's initiatives. The done column is hidden until you tick "show done".
 - A card with a PR shows a "PR #n" link, on the card and in its dialog.
 - Cards show owner, branch, initiative, unmet dependencies in bold, and the last note. A card in doing with no update for 24 hours gets an amber edge.
 - Refreshes every 2 seconds, so agent changes appear as they happen.

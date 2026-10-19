@@ -28,7 +28,7 @@
     header > * { order:2; }
     #q { order:0; flex:1 1 60%; min-width:0; }
     header button { order:1; }
-    #project, #when { flex:1 1 30%; min-width:0; }
+    #project, #initiative, #when { flex:1 1 30%; min-width:0; }
     #err:not(:empty) { flex-basis:100%; }
     nav, main { scrollbar-width:none; }
     nav { display:flex; overflow-x:auto; padding:0 4px; border-bottom:1px solid var(--line); }
@@ -66,6 +66,7 @@
   <span id="err" class="err" role="alert"></span>
   <input id="q" type="search" placeholder="search #id or text" aria-label="search tasks">
   <select id="project" aria-label="project"><option value="">all projects</option></select>
+  <select id="initiative" aria-label="initiative"><option value="">all initiatives</option></select>
   <select id="when" aria-label="when"><option value="">now + next + later</option><option>now</option><option>next</option><option>later</option></select>
   <label><input type="checkbox" id="showDone"> show done</label>
   <button class="primary" onclick="openAdd()">+ task</button>
@@ -125,7 +126,10 @@ function render() {
   const projects = [...new Set(board.tasks.map(t => t.project).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">all projects</option>' + projects.map(p => `<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
   try { if (!cur && localStorage.project && projects.includes(localStorage.project)) sel.value = localStorage.project; } catch {}
-  const filter = sel.value, showDone = $('#showDone').checked, when = $('#when').value;
+  const isel = $('#initiative'), icur = isel.value; // only the selected project's initiatives; a gone one falls back to all
+  const inits = [...new Set(board.tasks.filter(t => !sel.value || t.project === sel.value).map(t => t.initiative).filter(Boolean))].sort();
+  isel.innerHTML = '<option value="">all initiatives</option>' + inits.map(i => `<option ${i===icur?'selected':''}>${esc(i)}</option>`).join('');
+  const filter = sel.value, init = inits.includes(icur) ? icur : '', showDone = $('#showDone').checked, when = $('#when').value;
   const q = $('#q').value.trim().toLowerCase(), qid = /^#?\d+$/.test(q) && +q.replace('#', '');
   const found = t => !q || (qid ? t.id === qid : [t.title, t.branch, t.initiative, t.owner, t.project, t.pr].join(' ').toLowerCase().includes(q));
   const stale = Date.now() - 24*3600e3;
@@ -133,7 +137,7 @@ function render() {
   const tab = document.activeElement?.closest('#tabs button')?.dataset.status;
   const tops = Object.fromEntries([...document.querySelectorAll('.col')].map(c => [c.dataset.status, c.scrollTop])); // phone: columns scroll on their own
   const cols = STATUSES.filter(s => s !== 'done' || showDone).map(s =>
-    [s, board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!when || (t.when || 'later') === when) && found(t))]);
+    [s, board.tasks.filter(t => t.status === s && (!filter || t.project === filter) && (!init || t.initiative === init) && (!when || (t.when || 'later') === when) && found(t))]);
   $('#tabs').innerHTML = cols.map(([s, ts]) =>
     `<button data-status="${s}" onclick="showCol('${s}')">${s} <span class="n ${s === 'blocked' && ts.length ? 'err' : ''}">${ts.length}</span></button>`).join('');
   $('#board').innerHTML = cols.map(([s, ts]) =>
@@ -233,6 +237,7 @@ function openAdd() { // the same dialog as openTask, empty: saveEdit creates the
 $('#project').onchange = () => { try { localStorage.project = $('#project').value; } catch {} render(); };
 $('#showDone').onchange = render;
 $('#when').onchange = render;
+$('#initiative').onchange = render;
 $('#q').oninput = render;
 refresh(); setInterval(refresh, 2000);
 </script>

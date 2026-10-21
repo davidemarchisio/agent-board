@@ -11,7 +11,7 @@ the `board-session.js` OpenCode plugin) — codex has no equivalent hook, so it 
 on every write command, or its launch shell must `export BOARD_AGENT=codex` before starting codex.
 
 - **Start of session:** run `board list` and `board ready`. Work only on tasks that exist on the board. If the user asks for something new, `board add "title"` first.
-- **Pick work in this order:** `when` is `now`, then `next`, then `later`; inside a horizon, board order is priority. Only the user sets `when`; if a new task needs one, ask instead of guessing.
+- **Pick work in this order:** `when` is `now`, then `next`, then `later`; inside a horizon, board order is priority. New cards default to `later`. Change a card's `when` only when the user tells you to. If you think a card belongs in `now` or `next`, ask first, and change it only if the user says yes.
 - **Group the cards of one feature or plan:** `board add "title" --initiative <name>`; `board ready --initiative <name>` lists that group's ready cards.
 - **Before starting a task:** `board claim <id> --branch <branch>`.
 - **When you stop, get blocked, or hand off:** `board note <id> "what is done, what is next, where to look"`, then one of:
